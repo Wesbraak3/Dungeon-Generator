@@ -1,67 +1,76 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using NaughtyAttributes;
 
 namespace DungeonGeneration {
     public class DungeonGenerator : MonoBehaviour {
         #region Room Settings
 
         [Header("Room Settings")]
-        [DisableIf("Enabled"), SerializeField] 
+        [SerializeField]
         private RectInt initialSize = new(0, 0, 100, 50);
-        [DisableIf("Enabled"), SerializeField] 
+        [SerializeField]
         private int height = 5;
-        [DisableIf("Enabled"), SerializeField] 
+        [SerializeField]
         private Color dungeonColor = Color.blue;
 
-        [HorizontalLine]
         [Header("Room Debug")]
-        [ReadOnly, SerializeField] 
+        [SerializeField]
         private List<RectInt> rooms = new();
 
-        [HorizontalLine]
         [Header("Room manager")]
-        [ReadOnly, SerializeField] 
+        [SerializeField]
         private int roomCount = 0;
+        private bool Started = false;
 
         #endregion
 
-        // For disabling the inspector room settings after start
-        public bool Enabled() => roomCount > 0;
 
         void Start() {
+            Started = true;
+            ResetDungeon();
         }
         void Update() {
+        }
+
+        public void ResetDungeon() {
+            DebugDrawingBatcher.ClearCalls();
+            rooms.Clear();
+            roomCount = 0;
         }
 
         /// <summary>
         /// Testing setup for manuel creating splitting etc..
         /// Later use logic to automate the proces
-        /// </summary>
-        [Button(enabledMode: EButtonEnableMode.Playmode)]
-        private void CreateInitialRoom() {
-            // clear stored values
-            DebugDrawingBatcher.ClearCalls();
-            rooms.Clear();
+        ///// </summary>
+        public void CreateInitialRoom() {
+            if (!Started) return;
+            ResetDungeon();
 
-            // make so battcher accept list as input instead of objects?
+            RectInt dungeonSize = new(
+                initialSize.x,
+                initialSize.y,
+                initialSize.width,
+                initialSize.height
+            );
+
             DebugDrawingBatcher.BatchCall(() => {
-                AlgorithmsUtils.DebugRectInt(initialSize, dungeonColor, height:height);
+                AlgorithmsUtils.DebugRectInt(dungeonSize, dungeonColor, height:height);
             });
 
             rooms.Add(initialSize);
             roomCount = rooms.Count;
         }
 
-        [Button(enabledMode: EButtonEnableMode.Playmode)]
-        private void SplitRooms() {
+        public void SplitRooms() {
+            if (roomCount == 0) return;
+
             roomCount = rooms.Count;
             throw new NotImplementedException();
         }
 
         private void OnDrawGizmos() {
-            if (rooms.Count == 0) DebugExtension.DebugBounds(new Bounds(new Vector3(initialSize.center.x, 0, initialSize.center.y), new Vector3(initialSize.width, height, initialSize.height)), dungeonColor);
+            if (rooms.Count == 0) DebugExtension.DebugBounds(new Bounds(new Vector3(initialSize.center.x, 0, initialSize.center.y), new Vector3(initialSize.width, height, initialSize.height)), Color.yellow);
         }
     }
 }
