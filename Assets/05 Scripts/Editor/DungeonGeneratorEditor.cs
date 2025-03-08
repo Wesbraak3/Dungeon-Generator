@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEditor;
-using DungeonGeneration;
 
 namespace DungeonGeneration {
     [CustomEditor(typeof(DungeonGenerator))]

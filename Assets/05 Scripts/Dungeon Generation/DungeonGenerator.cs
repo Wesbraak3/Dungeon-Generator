@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 namespace DungeonGeneration {
@@ -11,6 +13,8 @@ namespace DungeonGeneration {
         private RectInt initialSize = new(0, 0, 100, 50);
         [SerializeField]
         private int height = 5;
+        [SerializeField]
+        private int minRoomSize = 10;
         [SerializeField]
         private Color dungeonColor = Color.blue;
 
@@ -47,7 +51,7 @@ namespace DungeonGeneration {
             if (!Started) return;
             ResetDungeon();
 
-            RectInt dungeonSize = new(
+            RectInt initialRoom = new(
                 initialSize.x,
                 initialSize.y,
                 initialSize.width,
@@ -55,18 +59,47 @@ namespace DungeonGeneration {
             );
 
             DebugDrawingBatcher.BatchCall(() => {
-                AlgorithmsUtils.DebugRectInt(dungeonSize, dungeonColor, height:height);
+                AlgorithmsUtils.DebugRectInt(initialRoom, dungeonColor, height:height);
             });
 
-            rooms.Add(initialSize);
+            rooms.Add(initialRoom);
             roomCount = rooms.Count;
         }
 
         public void SplitRooms() {
             if (roomCount == 0) return;
 
+            for (int i = 0; i <= rooms.Count - 1; i++) {
+                RectInt room = rooms[i];
+
+                // random between 20 and room.width/height
+                int splitA = Mathf.CeilToInt(room.width / 2);
+                int splitB = room.width - splitA;
+
+                if (splitA < minRoomSize || splitB < minRoomSize) {
+                    // mark room as done.
+                    continue;
+                }
+
+                RectInt roomA = new(room.x, room.y, splitA, room.height);
+                RectInt roomB = new(room.x + splitA - 1, room.y, splitB + 1, room.height);
+
+                rooms.Remove(room);
+                rooms.Add(roomA);
+                rooms.Add(roomB);
+            }
+
+            DebugRenderer(rooms);
             roomCount = rooms.Count;
-            throw new NotImplementedException();
+        }
+        void DebugRenderer(List<RectInt> rooms) {
+            DebugDrawingBatcher.ClearCalls();
+
+            foreach (RectInt room in rooms) {
+                DebugDrawingBatcher.BatchCall(() => {
+                    AlgorithmsUtils.DebugRectInt(room, dungeonColor, height: height);
+                });
+            }
         }
 
         private void OnDrawGizmos() {
