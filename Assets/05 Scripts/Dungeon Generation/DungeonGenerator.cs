@@ -1,19 +1,29 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 
 namespace DungeonGeneration {
     [Serializable]
     public class RoomData {
         public RectInt roomBounds;
-        public bool roomIsDone;
         public Action debugActions;
 
-        public RoomData(RectInt bounds, bool isDone=false, Action debugAction = null) {
+        public RoomData(RectInt bounds, Action debugAction = null) {
             this.roomBounds = bounds;
-            this.roomIsDone = isDone;
+            this.debugActions = debugAction;
+        }
+
+        public void ExecuteDebugActions() {
+            debugActions?.Invoke();
+        }
+    }
+    public class DoorData {
+        public RectInt doorBounds;
+        public Action debugActions;
+
+        public DoorData(RectInt bounds, Action debugAction = null) {
+            this.doorBounds = bounds;
             this.debugActions = debugAction;
         }
 
@@ -35,13 +45,16 @@ namespace DungeonGeneration {
         private Color dungeonColor = Color.blue;
 
         [Header("generated Rooms")]
-        [SerializeField]
-        private List<RoomData> rooms = new();
+        [SerializeField] private List<RoomData> rooms = new();
+        [SerializeField] private List<DoorData> doors = new();
+
         [SerializeField]
         private float splitRoomDelay = 5f;
-        [SerializeField]
-        private int splitTillPercentageSmall = 100;
+        [SerializeField, Range(0f, 1f)]
+        private float verticalSplitBias = 0.5f;
 
+        [SerializeField]
+        private int activeSplits = 0;
 
         private bool Started = false;
         #endregion
@@ -52,15 +65,21 @@ namespace DungeonGeneration {
         }
 
         void Update() {
+            RectInt outerWall = initialRoom;
+            outerWall.x = initialRoom.x + 1;
+            outerWall.y = initialRoom.y + 1;
+            outerWall.width = initialRoom.width - 2;
+            outerWall.height = initialRoom.height - 2;
+
+            DebugRectInt(outerWall, dungeonColor, height: height);
             foreach (RoomData room in rooms) {
                 room.ExecuteDebugActions();
             }
+            foreach (DoorData door in doors) {
+                door.ExecuteDebugActions();
+            }
         }
-
-        /// <summary>
-        /// Testing setup for manuel creating splitting etc..
-        /// Later use logic to automate the proces
-        ///// </summary>
+        
         public void CreateInitialRoom() {
             if (!Started) return;
 
@@ -78,90 +97,83 @@ namespace DungeonGeneration {
             rooms.Add(newRoom);
         }
 
-        public void GenerateDungeonButton() {
+        IEnumerator GenerateDungeon() {
             if (rooms.Count <= 0) {
                 Debug.Log("You need a room to start splitting idiot");
-                return;
+                yield break;
             }
-
-            StartCoroutine(GenerateDungeon());
-        }
-
-        IEnumerator GenerateDungeon() {
             yield return StartCoroutine(SplitRooms());
             yield return StartCoroutine(AddDoors());
             yield return StartCoroutine(GenerateGraph());
         }
 
-        /// <summary>
-        /// Split rooms while
-        /// 1. rooms not small enouth
-        /// 2. a precentage of rooms not done
-        /// room not done when % of rooms still to big 
-        /// </summary>
-        /// <returns></returns>
         IEnumerator SplitRooms() {
-            int activeSplits = 0;
-
-            StartCoroutine(RecursiveSplit(rooms[0].roomBounds));
+            activeSplits = 1;
+            StartCoroutine(RecursiveSplit(rooms[0]));
 
             yield return new WaitWhile(() => activeSplits > 0);
             Debug.Log("Done splitting continuing with something else again");
             Debug.Log("Recursion didnt kill me");
 
-            IEnumerator RecursiveSplit(RectInt room) {
-                activeSplits++;
-                
-                // stop if global stop or room to small
-                if (!ContiueSplitting()) {
+            IEnumerator RecursiveSplit(RoomData roomData) {
+                RectInt room = roomData.roomBounds;
+
+                // Calculate posible splits
+                bool splitH = room.height / 2 > minRoomSize;
+                bool splitV = room.width / 2 > minRoomSize;
+
+                if (!splitH && !splitV) {
                     activeSplits--;
                     yield break;
                 }
 
-                //split and call again
-                //split logic PUT IT HERE BRUH
+                RectInt a, b;
+                // split V when
+                if (!splitH || (splitV && room.width >= room.height * 2)) VSplit(room, out a, out b);
+                else if (!splitV || (splitH && room.height >= room.width * 2)) HSplit(room, out a, out b);
+                else {
+                    bool verticalSplit = UnityEngine.Random.value < verticalSplitBias;
+                    if (verticalSplit) VSplit(room, out a, out b);
+                    else HSplit(room, out a, out b);
+                }
 
-                //    Debug.Log("render new room");
+                RoomData roomA = new(
+                    a, debugAction: () => DebugRectInt(a, dungeonColor, height: height));
+                RoomData roomB = new(
+                    b, debugAction: () => DebugRectInt(b, dungeonColor, height: height));
 
-                //for (int i = 0; i <= rooms.Count - 1; i++) {
-                //    RectInt room = rooms[i];
-
-                //    // random between 20 and room.width/height
-                //    int splitA = Mathf.CeilToInt(room.width / 2);
-                //    int splitB = room.width - splitA;
-
-                //    if (splitA < minRoomSize || splitB < minRoomSize) {
-                //        // mark room as done.
-                //        continue;
-                //    }
-
-                //    RectInt roomA = new(room.x, room.y, splitA, room.height);
-                //    RectInt roomB = new(room.x + splitA - 1, room.y, splitB + 1, room.height);
-
-                //    rooms.Remove(room);
-                //    rooms.Add(roomA);
-                //    rooms.Add(roomB);
-                //}
-
-                //DebugRenderer(rooms);
-                //roomCount = rooms.Count;
-
-                RectInt roomA = room;
-                RectInt roomB = room;
+                rooms.Remove(roomData);
+                rooms.Add(roomA);
+                rooms.Add(roomB);
 
                 // wait till next split
                 yield return new WaitForSeconds(splitRoomDelay);
+
+                activeSplits+=2;
                 StartCoroutine(RecursiveSplit(roomA));
                 StartCoroutine(RecursiveSplit(roomB));
-            }
+                activeSplits--;
 
-            bool ContiueSplitting() {
-                //int smallRooms = rooms.FindAll(r => r.width <= minRoomSize || r.height <= minRoomSize).Count;
-                //return (float)smallRooms / rooms.Count >= splitTillPercentageSmall;
-                return false;
+                void VSplit(RectInt room, out RectInt a, out RectInt b) {
+                    int randomInt = UnityEngine.Random.Range(minRoomSize, room.width - minRoomSize + 1);
+
+                    int splitA = randomInt;
+                    int splitB = room.width - randomInt;
+
+                    a = new(room.x, room.y, splitA, room.height);
+                    b = new(room.x + splitA - 1, room.y, splitB + 1, room.height);
+                }
+                void HSplit(RectInt room, out RectInt a, out RectInt b) {                    
+                    int randomInt = UnityEngine.Random.Range(minRoomSize, room.height - minRoomSize + 1);
+
+                    int splitA = randomInt;
+                    int splitB = room.height - randomInt;
+
+                    a = new(room.x, room.y, room.width, splitA);
+                    b = new(room.x, room.y + splitA - 1, room.width, splitB + 1);
+                }                
             }
         }
-
         IEnumerator AddDoors() {
             yield return null;
         }
@@ -173,6 +185,8 @@ namespace DungeonGeneration {
             if (!Started) DebugExtension.DebugBounds(new Bounds(new Vector3(initialRoom.center.x, 0, initialRoom.center.y), new Vector3(initialRoom.width, height, initialRoom.height)), Color.yellow);
         }
 
+
+        public void GenerateDungeonButton() => StartCoroutine(GenerateDungeon());
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
     }
