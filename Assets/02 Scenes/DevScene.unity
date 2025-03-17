@@ -467,18 +467,28 @@ MonoBehaviour:
   m_GameObject: {fileID: 1545683118}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3b87f5ad00f25d54e8b0f3e29ce2c4eb, type: 3}
+  m_Script: {fileID: 11500000, guid: 55e84cadbd06f414f9504389a7345362, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  initialSize:
+  dungeonData:
+    RoomList: []
+    DoorList: []
+  initialRoomSize:
     x: 0
     y: 0
-    width: 100
-    height: 50
-  height: 0
-  dungeonColor: {r: 0, g: 0, b: 1, a: 1}
-  rooms: []
-  roomCount: 0
+    width: 500
+    height: 250
+  minRoomSize: 10
+  roomHeight: 5
+  placeDoors: 1
+  doorSize: 2
+  doorHeight: 5
+  ActiveSplits: 0
+  maxThreads: 2
+  seed: 1234
+  updateWireframe: 1
+  stopwatch: 0
+  generating: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
