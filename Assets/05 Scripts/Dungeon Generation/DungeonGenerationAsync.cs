@@ -18,7 +18,7 @@ namespace DungeonGeneration {
         [SerializeField] private int doorSize = 2;
         [SerializeField] private int doorHeight = 5;
 
-        [SerializeField] private float splitRoomDelay = 5f;
+        //[SerializeField] private float splitRoomDelay = 5f;
         #endregion
 
         public int num = 0;
@@ -202,7 +202,7 @@ namespace DungeonGeneration {
         }
 
         private void OnDrawGizmos() {
-            if (false) DebugExtension.DebugBounds(new Bounds(new Vector3(initialRoomSize.center.x, 0, initialRoomSize.center.y), new Vector3(initialRoomSize.width, roomHeight, initialRoomSize.height)), Color.yellow);
+            //if (false) DebugExtension.DebugBounds(new Bounds(new Vector3(initialRoomSize.center.x, 0, initialRoomSize.center.y), new Vector3(initialRoomSize.width, roomHeight, initialRoomSize.height)), Color.yellow);
         }
 
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
