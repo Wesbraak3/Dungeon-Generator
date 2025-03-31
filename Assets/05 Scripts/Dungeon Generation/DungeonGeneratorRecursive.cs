@@ -1,9 +1,12 @@
-﻿using System;
+﻿using NUnit.Framework.Constraints;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Burst.Intrinsics;
 using UnityEngine;
 
-namespace DungeonGeneration {
+namespace DungeonGeneration {    
     public class DungeonGeneratorRecursive : MonoBehaviour {
         private DungeonData dungeonData = new();
         private System.Random random;
@@ -12,22 +15,20 @@ namespace DungeonGeneration {
         [SerializeField] private int seed = 1234;
         [SerializeField] private RectInt dungeonSize = new(0, 0, 100, 50);
         [SerializeField] private int minRoomSize = 10;
-        [SerializeField] private int maxRoomSize = 20;
         [SerializeField] private int doorSize = 2;
         [SerializeField] private int height = 5;
         
         [Space(10)]
         [Header("Visualisation")]
-        [SerializeField] private float wireframeFixedUpdate = 0;
+        [SerializeField] private float wireframeFixedUpdate = 1;
         [SerializeField] private bool drawRooms = true;
-        [SerializeField] private bool drawGraph = true;
         [SerializeField] private bool drawDoors = true;
-
-        [SerializeField] private bool randomColour = false;
-
+        [SerializeField] private bool drawGraph = true;
 
         [Space(10)]
-        [Header("Debug")]
+        [Header("Debug stats")]
+        [SerializeField] private int maxTreads = 2;
+        [SerializeField] private int activeTreads = 0;
         [SerializeField] private int ActiveSplits = 0;
 
         private DateTime startTime;
@@ -36,8 +37,6 @@ namespace DungeonGeneration {
 
         private void Start() {
             ResetDungeon();
-        }
-        private void Update() {
         }
 
         private void StartTime() {
@@ -52,69 +51,82 @@ namespace DungeonGeneration {
             Debug.Log($"Room Generation timer: {timeTaken.TotalSeconds}");
         }
 
-
-
-        [ContextMenu("draw debug")]
         private void DrawDebug() {
-            RectInt innerWall = dungeonSize;
-            innerWall.x = dungeonSize.x + 1;
-            innerWall.y = dungeonSize.y + 1;
-            innerWall.width = dungeonSize.width - 2;
-            innerWall.height = dungeonSize.height - 2;
+            StartCoroutine(DrawInnerWall());
+            StartCoroutine(DrawRooms());
+            StartCoroutine(DrawDoors());
+            StartCoroutine(DrawGraph());
 
-            DebugRectInt(innerWall, Color.blue, height: height, duration: wireframeFixedUpdate);
-
-            HashSet<(RoomData, RoomData)> discovered = new();
-            foreach (RoomData room in dungeonData.GetDungeonRooms()) {
-                RectInt roomBounds = room.Bounds;
-                Color finishedRoomColour = randomColour ? new(
-                        UnityEngine.Random.value,
-                        UnityEngine.Random.value,
-                        UnityEngine.Random.value
-                ) : Color.cyan;
-                bool splitH = roomBounds.height / 2 <= minRoomSize;
-                bool splitV = roomBounds.width / 2 <= minRoomSize;
-                if (splitH && splitV) {
-                    Vector3 roomPosition = new Vector3(roomBounds.center.x, 0, roomBounds.center.y);
-
+            IEnumerator DrawGraph() {
+                while (true) {
                     if (drawGraph) {
-                        foreach (RoomData connectedRoom in room.ConnectedRooms) {
-                            if (discovered.Contains((connectedRoom, room))) {
-                                //Debug.Log("discoverred");
-                                continue;
-                            }
-                            discovered.Add((room, connectedRoom));
-                            Vector3 connectedRoomPosition = new Vector3(connectedRoom.Bounds.center.x, 0, connectedRoom.Bounds.center.y);
-                            Vector3 direction = (connectedRoomPosition - roomPosition);
-                            DebugArrow(roomPosition, direction, Color.white, duration: wireframeFixedUpdate);
-                        }
-                        DebugPoint(roomPosition, Color.magenta, duration: wireframeFixedUpdate);
-                    }
-                    if (drawRooms) {
-                        DebugRectInt(roomBounds, finishedRoomColour, height: room.Height, duration: wireframeFixedUpdate);
-                    }
-                }
-                else {
-                    DebugRectInt(room.Bounds, Color.blue, height: room.Height, duration: wireframeFixedUpdate);
-                }
-            }
-            if (drawDoors) {
-                foreach (DoorData door in dungeonData.GetDungeonDoors()) {
-                    if (door.IsLocked) {
-                        DebugRectInt(door.Bounds, Color.red, height: door.Height, duration: wireframeFixedUpdate);
-                    }
-                    else {
-                        DebugRectInt(door.Bounds, Color.red, height: door.Height, duration: wireframeFixedUpdate);
-                    }
-                }
-            }
-        }
+                        Color roomNodeColor = Color.magenta;
+                        Color doorNodeColor = Color.red;
+                        Color edgeColor = Color.yellow;
 
-        IEnumerator DrawDungeon() {
-            DrawDebug();
-            while (true) {
-                DrawDebug();
-                yield return new WaitForSeconds(wireframeFixedUpdate);
+                        HashSet<DoorData> discovered = new();
+                        foreach (RoomData room in dungeonData.GetDungeonRooms()) {
+                            Vector3 roomPosition = new(room.Bounds.center.x, 0, room.Bounds.center.y);
+                            DebugPoint(roomPosition, roomNodeColor, duration: wireframeFixedUpdate);
+                            
+                            foreach (DoorData connectedDoor in room.ConnectedDoors) {
+                                if (!discovered.Contains(connectedDoor)) {
+                                    discovered.Add(connectedDoor);
+
+                                    Vector3 doorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
+                                    DebugPoint(doorPosition, doorNodeColor, duration: wireframeFixedUpdate);
+                                }
+
+                                Vector3 connectedDoorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
+                                Vector3 directionToDoor = connectedDoorPosition - roomPosition;
+                                DebugArrow(roomPosition, directionToDoor, edgeColor, duration: wireframeFixedUpdate);
+                            }
+                        }
+                    }
+
+                    yield return new WaitForSeconds(wireframeFixedUpdate);
+                }
+            }
+
+            IEnumerator DrawRooms() {
+                while (true) { 
+                    if (drawRooms) {
+                        Color roomColour = Color.cyan;
+
+                        foreach (RoomData room in dungeonData.GetDungeonRooms()) {
+                            DebugRectInt(room.Bounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
+                        }
+                    }
+
+                    yield return new WaitForSeconds(wireframeFixedUpdate);
+                }
+            }
+
+            IEnumerator DrawDoors() {
+                while (true) {
+                    if (drawDoors) {
+                        Color doorColour = Color.green;
+
+                        foreach (DoorData door in dungeonData.GetDungeonDoors()) {
+                            DebugRectInt(door.Bounds, doorColour, height: door.Height, duration: wireframeFixedUpdate);
+                        }
+                    }
+
+                    yield return new WaitForSeconds(wireframeFixedUpdate);
+                }
+            }
+
+            IEnumerator DrawInnerWall() {
+                while (true) {
+                    RectInt innerWall = dungeonSize;
+                    innerWall.x = dungeonSize.x + 1;
+                    innerWall.y = dungeonSize.y + 1;
+                    innerWall.width = dungeonSize.width - 2;
+                    innerWall.height = dungeonSize.height - 2;
+
+                    DebugRectInt(innerWall, Color.blue, height: height, duration: wireframeFixedUpdate);
+                    yield return new WaitForSeconds(wireframeFixedUpdate);
+                }
             }
         }
 
@@ -124,8 +136,9 @@ namespace DungeonGeneration {
             dungeonData.Clear();
 
             generating = false;
+            activeTreads = 0;
+            DrawDebug();
 
-            StartCoroutine(DrawDungeon());
             random = new System.Random(seed);
             RoomData room = new(dungeonSize, height);
             dungeonData.AddRoom(room);
@@ -133,175 +146,181 @@ namespace DungeonGeneration {
             return room;
         }
 
-        public void GenerateDungeonButton() => StartCoroutine(GenerateDungeon());
-        private IEnumerator GenerateDungeon() {
-            Debug.Log("generating dungeon");
-
+        [ContextMenu("Generate Dungeon")]
+        public void GenerateDungeonButton() {
             RoomData rootRoom = ResetDungeon();
+            StartCoroutine(GenerateDungeon(rootRoom));
+        }
 
+        private IEnumerator GenerateDungeon(RoomData rootRoom) {
+            Debug.Log("generating dungeon");
             StartTime();
+
             ActiveSplits = 1;
             yield return StartCoroutine(RecursiveSplit(rootRoom, (callback) => {
-                ActiveSplits--;
-                StopTime();
+                ActiveSplits = 0;
             }));
 
-            Debug.Log("after recursion fine");
-            yield return new WaitUntil(() => !generating);
-            Debug.Log("waituntil good");
-            yield return new WaitWhile(() => generating);
-            Debug.Log("waitwhile good");
-        }
+            Debug.Log("remove smaller rooms");
 
-        private IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
-            yield return null;
+            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms()));
+            StopTime();
 
-            RectInt room = roomData.Bounds;
+            // O(logN) with early stops
+            // O(N) equal splits
+            // O(n*m) with door placement
+            IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
+                RectInt room = roomData.Bounds;
 
-            bool splitH = room.height / 2 > minRoomSize;
-            bool splitV = room.width / 2 > minRoomSize;
+                bool splitH = room.height / 2 > minRoomSize;
+                bool splitV = room.width / 2 > minRoomSize;
 
-            if (!splitH && !splitV) {
-                List<RoomData> finishedRoomList = new() { roomData };
-                callback(finishedRoomList);
-                yield break;
-            }
+                if (!splitH && !splitV) {
+                    callback(new() { roomData });
+                    yield break;
+                }
 
-            RectInt a, b;
-            if (!splitH || (splitV && room.width >= room.height * 2)) (a, b) = VSplit(room);
-            else if (!splitV || (splitH && room.height >= room.width * 2)) (a, b) = HSplit(room);
-            else {
-                bool verticalSplit = random.Next(0, 2) == 0;
-                if (verticalSplit) (a, b) = VSplit(room);
-                else (a, b) = HSplit(room);
-            }
+                RectInt a, b;
+                if (!splitH || (splitV && room.width >= room.height * 2)) (a, b) = VSplit(room);
+                else if (!splitV || (splitH && room.height >= room.width * 2)) (a, b) = HSplit(room);
+                else {
+                    bool verticalSplit = random.Next(0, 2) == 0;
+                    if (verticalSplit) (a, b) = VSplit(room);
+                    else (a, b) = HSplit(room);
+                }
 
-            RoomData roomA = new(a, height);
-            RoomData roomB = new(b, height);
+                RoomData roomA = new(a, height);
+                RoomData roomB = new(b, height);
 
-            dungeonData.RemoveRoom(roomData);
-            dungeonData.AddRoom(roomA);
-            dungeonData.AddRoom(roomB);
+                dungeonData.RemoveRoom(roomData);
+                dungeonData.AddRoom(roomA);
+                dungeonData.AddRoom(roomB);
 
-            List<RoomData> splitRoomsA = new();
-            List<RoomData> splitRoomsB = new();
+                List<RoomData> splitRoomsA = new();
+                List<RoomData> splitRoomsB = new();
 
-            ActiveSplits += 2;
-            StartCoroutine(RecursiveSplit(roomA, (splitCallback) => {
-                splitRoomsA = splitCallback;
-                ActiveSplits--;
-            }));
-            StartCoroutine(RecursiveSplit(roomB, (splitCallback) => {
-                splitRoomsB = splitCallback;
-                ActiveSplits--;
-            }));
+                ActiveSplits += 2;
+                if (activeTreads < maxTreads) {
+                    activeTreads += 1;
+                    StartCoroutine(RecursiveSplit(roomA, (splitCallback) => {
+                        splitRoomsA = splitCallback;
+                        activeTreads -= 1;
+                        ActiveSplits -= 1;
+                    }));
+                }
+                else {
+                    yield return StartCoroutine(RecursiveSplit(roomA, (splitCallback) => {
+                        splitRoomsA = splitCallback;
+                        ActiveSplits -= 1;
+                    }));
+                }
+                StartCoroutine(RecursiveSplit(roomB, (splitCallback) => {
+                    splitRoomsB = splitCallback;
+                    ActiveSplits -= 1;
+                }));
 
-            yield return new WaitUntil(() => splitRoomsA.Count != 0 && splitRoomsB.Count != 0);
-            StartCoroutine(AddConnections(splitRoomsA, splitRoomsB));
+                yield return new WaitUntil(() => splitRoomsA.Count != 0 && splitRoomsB.Count != 0);
+                StartCoroutine(AddDoors(splitRoomsA, splitRoomsB));
 
-            splitRoomsA.AddRange(splitRoomsB);
-            callback(splitRoomsA);
+                splitRoomsA.AddRange(splitRoomsB);
+                callback(splitRoomsA);
 
-            (RectInt, RectInt) VSplit(RectInt room) {
-                int randomInt = random.Next(minRoomSize, room.width - minRoomSize + 1);
+                (RectInt, RectInt) VSplit(RectInt room) {
+                    int randomInt = random.Next(minRoomSize, room.width - minRoomSize + 1);
 
-                int splitA = randomInt;
-                int splitB = room.width - randomInt;
+                    int splitA = randomInt;
+                    int splitB = room.width - randomInt;
 
-                RectInt a = new(room.x, room.y, splitA, room.height);
-                RectInt b = new(room.x + splitA - 1, room.y, splitB + 1, room.height);
-                return (
-                    new(room.x, room.y, splitA, room.height),
-                    new(room.x + splitA - 1, room.y, splitB + 1, room.height)
-                );
-            }
-            (RectInt, RectInt) HSplit(RectInt room) {
-                int randomInt = random.Next(minRoomSize, room.height - minRoomSize + 1);
+                    RectInt a = new(room.x, room.y, splitA, room.height);
+                    RectInt b = new(room.x + splitA - 1, room.y, splitB + 1, room.height);
+                    return (
+                        new(room.x, room.y, splitA, room.height),
+                        new(room.x + splitA - 1, room.y, splitB + 1, room.height)
+                    );
+                }
+                (RectInt, RectInt) HSplit(RectInt room) {
+                    int randomInt = random.Next(minRoomSize, room.height - minRoomSize + 1);
 
-                int splitA = randomInt;
-                int splitB = room.height - randomInt;
+                    int splitA = randomInt;
+                    int splitB = room.height - randomInt;
 
-                return (
-                    new(room.x, room.y, room.width, splitA),
-                    new(room.x, room.y + splitA - 1, room.width, splitB + 1)
-                );
-            }
+                    return (
+                        new(room.x, room.y, room.width, splitA),
+                        new(room.x, room.y + splitA - 1, room.width, splitB + 1)
+                    );
+                }
 
-            IEnumerator AddConnections(List<RoomData> splitRoomsA, List<RoomData> splitRoomsB) {
-                int doorSpace = doorSize + 4;
-                foreach (RoomData roomA in splitRoomsA) {
-                    foreach (RoomData roomB in splitRoomsB) {
-                        RectInt? intersection = Intersect(roomA.Bounds, roomB.Bounds);
-                        if (!intersection.HasValue) continue;
+                // Big O(n*m)
+                IEnumerator AddDoors(List<RoomData> splitRoomsA, List<RoomData> splitRoomsB) {
+                    int doorSpace = doorSize + 4;
 
-                        RectInt rect = intersection.Value;
-                        if (intersection.HasValue && rect.height >= doorSpace || rect.width >= doorSpace)
-                            roomA.AddConnection(roomA, roomB);
+                    // Add doors between rooms
+                    foreach (RoomData roomA in splitRoomsA) {
+                        foreach (RoomData roomB in splitRoomsB) {
+                            RectInt? intersection = Intersect(roomA.Bounds, roomB.Bounds);
+                            if (!intersection.HasValue) continue;
+
+                            RectInt rect = intersection.Value;
+                            // Horizontal door
+                            if (rect.height == 1) {
+                                if (rect.width < doorSpace) continue;
+
+                                // between xmin + wallThickness * 2 and xmax - (wallThickness * 2 + doorSize)  
+                                int randomX = random.Next(rect.xMin + 2, rect.xMax - (doorSize + 2));
+
+                                DoorData door = new(new(randomX, rect.y, doorSize, 1), height, roomA, roomB);
+                                dungeonData.AddDoor(door);
+                            }
+                            // Vertical door
+                            else if (rect.width == 1) {
+                                if (rect.height < doorSpace) continue;
+
+                                // between xmin + wallThickness * 2 and xmax - (wallThickness * 2 + doorSize)  
+                                int randomY = random.Next(rect.yMin + 2, rect.yMax - (doorSize + 2));
+
+                                DoorData door = new(new(rect.x, randomY, 1, doorSize), height, roomA, roomB);
+                                dungeonData.AddDoor(door);
+                            }
+                        }
                     }
+
+                    yield break;
+
+                    // Big O(1)
+                    RectInt? Intersect(RectInt a, RectInt b) {
+                        int x = Mathf.Max(a.xMin, b.xMin);
+                        int y = Mathf.Max(a.yMin, b.yMin);
+                        int width = Mathf.Min(a.xMax, b.xMax) - x;
+                        int height = Mathf.Min(a.yMax, b.yMax) - y;
+
+                        return (width > 0 && height > 0) ? new(x, y, width, height) : null;
+                    }
+                }
+            }
+
+            //O(N log N) 
+            IEnumerator RemoveSmallRooms(List<RoomData> roomList, int removeSmallPercent = 50) {
+                //dungeonData.RemoveRoom(roomList[0]);
+
+
+                List<RoomData> sortedRooms = roomList.OrderBy(room => room.Surface).ToList();
+
+                int roomsToRemove = (int)(roomList.Count * (removeSmallPercent / 100f));
+                List<RoomData> roomsToRemoveList = sortedRooms.Take(roomsToRemove).ToList();
+                foreach (RoomData room in roomsToRemoveList) {
+                    dungeonData.RemoveRoom(room);
                 }
 
                 yield break;
-
-                RectInt? Intersect(RectInt a, RectInt b) {
-                    int x = Mathf.Max(a.xMin, b.xMin);
-                    int y = Mathf.Max(a.yMin, b.yMin);
-                    int width = Mathf.Min(a.xMax, b.xMax) - x;
-                    int height = Mathf.Min(a.yMax, b.yMax) - y;
-
-                    return (width > 0 && height > 0) ? new(x, y, width, height) : null;
-                }
             }
         }
 
-        private IEnumerator AddDoors(List<RoomData> splitRoomsA, List<RoomData> splitRoomsB) {
-            int doorSpace = doorSize + 4;
-            foreach (RoomData roomA in splitRoomsA) {
-                foreach (RoomData roomB in splitRoomsB) {
-                    RectInt? intersection = Intersect(roomA.Bounds, roomB.Bounds);
+        //[ContextMenu("Run BFS")]
+        //private void BFS() => dungeonData.RemoveCyclesBFS();
 
-                    if (!intersection.HasValue) {
-                        continue;
-                    }
-
-                    RectInt rect = intersection.Value;
-                    // Horizontal door
-                    if (rect.height == 1 && rect.width >= doorSpace) {
-                        // place door at
-                        int randomX = random.Next(rect.xMin + 2, rect.xMax - (doorSize + 2));
-
-                        DoorData door = new(new(randomX, rect.y, doorSize, 1), height, roomA, roomB);
-                        dungeonData.AddDoor(door);
-                    }
-                    // Vertical door
-                    else if (rect.width == 1 && rect.height >= doorSpace) {
-                        // place door at
-                        int randomY = random.Next(rect.yMin + 2, rect.yMax - (doorSize + 2));
-
-                        DoorData door = new(new(rect.x, randomY, 1, doorSize), height, roomA, roomB);
-                        dungeonData.AddDoor(door);
-                    }
-                }
-            }
-
-            yield break;
-
-            RectInt? Intersect(RectInt a, RectInt b) {
-                int x = Mathf.Max(a.xMin, b.xMin);
-                int y = Mathf.Max(a.yMin, b.yMin);
-                int width = Mathf.Min(a.xMax, b.xMax) - x;
-                int height = Mathf.Min(a.yMax, b.yMax) - y;
-
-                return (width > 0 && height > 0) ? new(x, y, width, height) : null;
-            }
-        }
-
-
-        [ContextMenu("Run BFS")]
-        private void BFS() => dungeonData.RemoveCyclesBFS();
-
-        [ContextMenu("Run DFS")]
-        private void DFS() => dungeonData.RemoveCyclesDFS();
-        private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
+        //[ContextMenu("Run DFS")]
+        //private void DFS() => dungeonData.RemoveCyclesDFS();
+        private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
         private static void DebugArrow(Vector3 position, Vector3 direction, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
             DebugExtension.DebugArrow(position, direction, color, duration: duration, depthTest: depthTest);

@@ -54,12 +54,7 @@ namespace DungeonGeneration {
                 }
             }
             foreach (DoorData door in dungeonData.GetDungeonDoors()) {
-                if (door.IsLocked) {
-                    DebugRectInt(door.Bounds, Color.red, height: door.Height);
-                }
-                else {
-                    DebugRectInt(door.Bounds, Color.green, height: door.Height);
-                }
+               
             }
         }
 
