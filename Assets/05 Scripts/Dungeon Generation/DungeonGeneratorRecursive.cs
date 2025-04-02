@@ -4,7 +4,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Burst.Intrinsics;
+using UnityEditor;
+using UnityEditor.Overlays;
 using UnityEngine;
+using UnityEngine.tvOS;
 
 namespace DungeonGeneration {    
     public class DungeonGeneratorRecursive : MonoBehaviour {
@@ -53,7 +56,7 @@ namespace DungeonGeneration {
         }
 
         private void DrawDebug() {
-            StartCoroutine(DrawInnerWall());
+            StartCoroutine(DrawInnerWalls());
             StartCoroutine(DrawRooms());
             StartCoroutine(DrawDoors());
             StartCoroutine(DrawGraph());
@@ -79,8 +82,7 @@ namespace DungeonGeneration {
                                 }
 
                                 Vector3 connectedDoorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
-                                Vector3 directionToDoor = connectedDoorPosition - roomPosition;
-                                DebugArrow(roomPosition, directionToDoor, edgeColor, duration: wireframeFixedUpdate);
+                                Debug.DrawLine(roomPosition, connectedDoorPosition, edgeColor, duration: wireframeFixedUpdate);
                             }
                         }
                     }
@@ -117,7 +119,7 @@ namespace DungeonGeneration {
                 }
             }
 
-            IEnumerator DrawInnerWall() {
+            IEnumerator DrawInnerWalls() {
                 while (true) {
                     RectInt innerWall = dungeonSize;
                     innerWall.x = dungeonSize.x + 1;
@@ -163,7 +165,7 @@ namespace DungeonGeneration {
             }));
 
             Debug.Log("remove smaller rooms");
-            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentToRemove:percentToRemove));
+            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage:percentToRemove));
             StopTime();
 
             // O(logN) with early stops
@@ -299,15 +301,42 @@ namespace DungeonGeneration {
             }
 
             //O(N log N) 
-            IEnumerator RemoveSmallRooms(List<RoomData> roomList, int percentToRemove = 0) {
-                List<RoomData> sortedRooms = roomList.OrderBy(room => room.Surface).ToList();
+            IEnumerator RemoveSmallRooms(List<RoomData> roomList, int percentage = 0) {
+                int totalRooms = roomList.Count;
+                Debug.Log("1: " + totalRooms);
 
-                int roomsToRemove = (int)(roomList.Count * (percentToRemove / 100f));
-                List<RoomData> roomsToRemoveList = sortedRooms.Take(roomsToRemove).ToList();
-                foreach (RoomData room in roomsToRemoveList) {
-                    int roomIndex = dungeonData.GetIndexOfRoom(room);
-                    if (dungeonData.CheckConnection(roomIndex)) {
-                        dungeonData.RemoveRoom(room);
+                int removeRooms = totalRooms * percentage / 100;
+                Debug.Log("2: " + removeRooms);
+
+                LinkedList<RoomData> linkedSortedRooms = new(roomList.OrderBy(room => room.Surface).ToList());
+
+
+                DateTime startTime = DateTime.Now; // Start time of the operation
+                TimeSpan timeout = TimeSpan.FromSeconds(10); // Set the timeout limit (e.g., 5 seconds)
+                
+                int removed = 0;
+                while (removed < removeRooms) {
+                    if (DateTime.Now - startTime > timeout) {
+                        Console.WriteLine("Timeout reached, exiting loop.");
+                        break; // Exit the loop if the timeout is exceeded
+                    }
+
+                    for (int i = 0; i < linkedSortedRooms.Count; i++) {
+                        RoomData room = linkedSortedRooms.ElementAt(i);
+
+                        if (dungeonData.CheckConnection(dungeonData.GetIndexOfRoom(room))) {
+                            dungeonData.RemoveRoom(room);
+                            linkedSortedRooms.Remove(room);
+                            removed++;
+                            continue;
+                        }
+
+                        //if (room.ConnectedDoors.Count == 1) {
+                        //    dungeonData.RemoveRoom(room);
+                        //    linkedSortedRooms.Remove(room);
+                        //    removeRooms--;
+                        //    break;
+                        //}
                     }
                 }
 
