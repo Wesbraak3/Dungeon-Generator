@@ -21,6 +21,9 @@ namespace DungeonGeneration {
         [SerializeField] private int doorSize = 2;
         [SerializeField] private int height = 5;
         [SerializeField] private int percentToRemove = 0;
+        private enum Algoritmes { BFS, DFS, DFSRandom, None};
+        [SerializeField] private Algoritmes algorithme = Algoritmes.BFS;
+
 
         [Space(10)]
         [Header("Visualisation")]
@@ -71,14 +74,14 @@ namespace DungeonGeneration {
                         HashSet<DoorData> discovered = new();
                         foreach (RoomData room in dungeonData.GetDungeonRooms()) {
                             Vector3 roomPosition = new(room.Bounds.center.x, 0, room.Bounds.center.y);
-                            DebugPoint(roomPosition, roomNodeColor, duration: wireframeFixedUpdate);
+                            DebugCircle(roomPosition, roomNodeColor, duration: wireframeFixedUpdate);
                             
                             foreach (DoorData connectedDoor in room.ConnectedDoors) {
                                 if (!discovered.Contains(connectedDoor)) {
                                     discovered.Add(connectedDoor);
 
                                     Vector3 doorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
-                                    DebugPoint(doorPosition, doorNodeColor, duration: wireframeFixedUpdate);
+                                    DebugCircle(doorPosition, doorNodeColor, duration: wireframeFixedUpdate);
                                 }
 
                                 Vector3 connectedDoorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
@@ -158,7 +161,27 @@ namespace DungeonGeneration {
 
             Debug.Log("remove smaller rooms");
             yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage:percentToRemove));
+
+            switch (algorithme) {
+                case Algoritmes.BFS:
+                    Debug.Log("BFS");
+                    yield return StartCoroutine(BFS());
+                    break;
+                case Algoritmes.DFS:
+                    Debug.Log("DFS");
+                    yield return StartCoroutine(DFS());
+                    break;
+                case Algoritmes.DFSRandom:
+                    Debug.Log("DFS Random");
+                    yield return StartCoroutine(DFSRandom());
+                    break;
+                case Algoritmes.None:
+                    break;
+            }
+            
             StopTime();
+
+            #region Local Functions
 
             // O(logN) with early stops
             // O(N) equal splits
@@ -334,18 +357,34 @@ namespace DungeonGeneration {
 
                 yield break;
             }
+
+            [ContextMenu("Run BFS")]
+            IEnumerator BFS() {
+                dungeonData.RemoveCyclesBFS();
+                yield break;
+            }
+
+            [ContextMenu("Run DFS")]
+            IEnumerator DFS() {
+                dungeonData.RemoveCyclesDFS();
+                yield break;
+            }
+
+            [ContextMenu("Run DFS Random")]
+            IEnumerator DFSRandom() {
+                dungeonData.RemoveCyclesDFS(randomised:true);
+                yield break;
+            }
+            
+            #endregion
         }
 
-        [ContextMenu("Run BFS")]
-        private void BFS() => dungeonData.RemoveCyclesBFS();
 
-        [ContextMenu("Run DFS")]
-        private void DFS() => dungeonData.RemoveCyclesDFS();
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
-        private static void DebugArrow(Vector3 position, Vector3 direction, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
-            DebugExtension.DebugArrow(position, direction, color, duration: duration, depthTest: depthTest);
-        private static void DebugPoint(Vector3 position, Color color, float scale = 1, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
-            DebugExtension.DebugPoint(position, color, scale:scale, duration:duration, depthTest:depthTest);
+        private static void DebugCircle(Vector3 position, Color color, float radius = .5f, float duration = 0f, bool depthTest = false) =>
+                DebugExtension.DebugCircle(position, color, radius:radius, duration: duration, depthTest: depthTest);
+
+
     }
 }
