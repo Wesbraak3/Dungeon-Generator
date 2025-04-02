@@ -17,7 +17,8 @@ namespace DungeonGeneration {
         [SerializeField] private int minRoomSize = 10;
         [SerializeField] private int doorSize = 2;
         [SerializeField] private int height = 5;
-        
+        [SerializeField] private int percentToRemove = 0;
+
         [Space(10)]
         [Header("Visualisation")]
         [SerializeField] private float wireframeFixedUpdate = 1;
@@ -162,8 +163,7 @@ namespace DungeonGeneration {
             }));
 
             Debug.Log("remove smaller rooms");
-
-            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms()));
+            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentToRemove:percentToRemove));
             StopTime();
 
             // O(logN) with early stops
@@ -299,27 +299,27 @@ namespace DungeonGeneration {
             }
 
             //O(N log N) 
-            IEnumerator RemoveSmallRooms(List<RoomData> roomList, int removeSmallPercent = 50) {
-                //dungeonData.RemoveRoom(roomList[0]);
-
-
+            IEnumerator RemoveSmallRooms(List<RoomData> roomList, int percentToRemove = 0) {
                 List<RoomData> sortedRooms = roomList.OrderBy(room => room.Surface).ToList();
 
-                int roomsToRemove = (int)(roomList.Count * (removeSmallPercent / 100f));
+                int roomsToRemove = (int)(roomList.Count * (percentToRemove / 100f));
                 List<RoomData> roomsToRemoveList = sortedRooms.Take(roomsToRemove).ToList();
                 foreach (RoomData room in roomsToRemoveList) {
-                    dungeonData.RemoveRoom(room);
+                    int roomIndex = dungeonData.GetIndexOfRoom(room);
+                    if (dungeonData.CheckConnection(roomIndex)) {
+                        dungeonData.RemoveRoom(room);
+                    }
                 }
 
                 yield break;
             }
         }
 
-        //[ContextMenu("Run BFS")]
-        //private void BFS() => dungeonData.RemoveCyclesBFS();
+        [ContextMenu("Run BFS")]
+        private void BFS() => dungeonData.RemoveCyclesBFS();
 
-        //[ContextMenu("Run DFS")]
-        //private void DFS() => dungeonData.RemoveCyclesDFS();
+        [ContextMenu("Run DFS")]
+        private void DFS() => dungeonData.RemoveCyclesDFS();
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
         private static void DebugArrow(Vector3 position, Vector3 direction, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>

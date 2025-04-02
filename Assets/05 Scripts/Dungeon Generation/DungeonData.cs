@@ -45,6 +45,7 @@ namespace DungeonGeneration {
             DoorList.Remove(door);
         }
 
+        public int GetIndexOfRoom(RoomData room) => RoomList.IndexOf(room);
         public List<RoomData> GetDungeonRooms() => new(RoomList);
         public List<DoorData> GetDungeonDoors() => new(DoorList);
 
@@ -53,58 +54,92 @@ namespace DungeonGeneration {
             DoorList.Clear();
         }
 
-        //public void BFS(int startRoomIndex = 0) {
-        //    Queue<RoomData> Q = new ();
-        //    HashSet<RoomData> discovered = new() { RoomList[startRoomIndex] };
-        //    Q.Enqueue(RoomList[startRoomIndex]);
+        public bool CheckConnection(int removeRoom) {
+            HashSet<RoomData> discoveredRooms = new() { RoomList[0], RoomList[removeRoom] };
+            Queue<RoomData> roomQue = new();
+            roomQue.Enqueue(RoomList[0]);
 
-        //    while (Q.Count > 0) {
-        //        RoomData v = Q.Dequeue();
-
-        //        List<RoomData> removeList = new();
-        //        foreach (RoomData vNew in v.ConnectedDoors) {
-        //            if (!discovered.Contains(vNew)) {
-        //                Q.Enqueue(vNew);
-        //                discovered.Add(vNew);
-        //            }
-        //            else {
-        //                removeList.Add(vNew);
-        //            }
-        //        }
-        //        foreach (RoomData room in removeList) v.ConnectedDoors.Remove(room);
-        //    }
-        //}
-
-        /* RemoveCyclesDFS
-        public void RemoveCyclesDFS(bool randomised = false) {
-            Stack<RoomData> Q = new();
-            HashSet<RoomData> discovered = new() { RoomList[0] };
-            Q.Push(RoomList[0]);
-
-            while (Q.Count > 0) {
-                RoomData v = Q.Pop();
-
-                List<RoomData> tempList = new();
-                List<RoomData> removeList = new();
-                foreach (RoomData vConnecction in v.ConnectedDoors) {
-                    if (!discovered.Contains(vConnecction)) {
-                        if (randomised) tempList.Add(vConnecction);
-                        else Q.Push(vConnecction);
-                        discovered.Add(vConnecction);
-                    } 
-                    else {
-                        removeList.Add(vConnecction);
+            while (roomQue.Count > 0) {
+                RoomData room = roomQue.Dequeue();
+                foreach (DoorData door in room.ConnectedDoors) {
+                    RoomData connectedRoom = null;
+                    foreach (RoomData doorRoom in door.ConnectedRooms) {
+                        if (doorRoom == room) continue;
+                        connectedRoom = doorRoom;
                     }
+                    if (discoveredRooms.Contains(connectedRoom)) continue;
+                    roomQue.Enqueue(connectedRoom);
+                    discoveredRooms.Add(connectedRoom);
                 }
-                foreach (RoomData room in removeList) v.ConnectedDoors.Remove(room);
+            }
+            return discoveredRooms.Count == RoomList.Count;
+        }
 
-                if (randomised) {
-                    Shuffle(tempList);
-                    foreach (RoomData room in tempList) Q.Push(room);
+        public void RemoveCyclesBFS(int startRoomIndex = 0) {
+            Queue<RoomData> roomQue = new();
+            HashSet<RoomData> discoveredRooms = new() { RoomList[startRoomIndex] };
+            HashSet<DoorData> discoveredDoors = new();
+            roomQue.Enqueue(RoomList[startRoomIndex]);
+
+            while (roomQue.Count > 0) {
+                RoomData room = roomQue.Dequeue();
+
+                for (int i = room.ConnectedDoors.Count - 1; i >= 0; i--) {
+                    DoorData door = room.ConnectedDoors[i];
+
+                    if (discoveredDoors.Contains(door)) continue;
+
+                    RoomData connectedRoom = null;
+                    foreach (RoomData doorRoom in door.ConnectedRooms) {
+                        if (doorRoom == room) continue;
+                        connectedRoom = doorRoom;
+                    }
+
+                    if (discoveredRooms.Contains(connectedRoom)) {
+                        RemoveDoor(door);
+                        continue;
+                    }
+
+                    roomQue.Enqueue(connectedRoom);
+                    discoveredRooms.Add(connectedRoom);
+                    discoveredDoors.Add(door);
                 }
             }
         }
-        */
+
+        public void RemoveCyclesDFS(int startRoomIndex = 0, bool randomised = false) {
+            Stack<RoomData> roomStack = new();
+            HashSet<RoomData> discoveredRooms = new() { RoomList[startRoomIndex] };
+            HashSet<DoorData> discoveredDoors = new();
+            roomStack.Push(RoomList[startRoomIndex]);
+
+            while (roomStack.Count > 0) {
+                RoomData room = roomStack.Pop();
+
+                for (int i = room.ConnectedDoors.Count - 1; i >= 0; i--) {
+                    DoorData door = room.ConnectedDoors[i];
+
+                    if (discoveredDoors.Contains(door)) continue;
+
+                    RoomData connectedRoom = null;
+                    foreach (RoomData doorRoom in door.ConnectedRooms) {
+                        if (doorRoom == room) continue;
+                        connectedRoom = doorRoom;
+                    }
+
+                    if (discoveredRooms.Contains(connectedRoom)) {
+                        RemoveDoor(door);
+                        continue;
+                    }
+
+                    roomStack.Push(connectedRoom);
+                    discoveredRooms.Add(connectedRoom);
+                    discoveredDoors.Add(door);
+                }
+            }
+        }
+
+
 
         // Fisher-Yates Shuffle
         // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
@@ -121,7 +156,7 @@ namespace DungeonGeneration {
         public RectInt Bounds { get; private set; }
         public int Height { get; private set; }
         public float Surface { get; private set; }
-        public HashSet<DoorData> ConnectedDoors { get; private set; } = new();
+        public List<DoorData> ConnectedDoors { get; private set; } = new();
 
         public RoomData(RectInt bounds, int height) {
             Bounds = bounds;
