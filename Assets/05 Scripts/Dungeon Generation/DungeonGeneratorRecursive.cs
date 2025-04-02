@@ -26,6 +26,7 @@ namespace DungeonGeneration {
         [Header("Visualisation")]
         [SerializeField] private float wireframeFixedUpdate = 1;
         [SerializeField] private bool drawRooms = true;
+        [SerializeField] private bool drawInnerWalls = true;
         [SerializeField] private bool drawDoors = true;
         [SerializeField] private bool drawGraph = true;
 
@@ -56,7 +57,6 @@ namespace DungeonGeneration {
         }
 
         private void DrawDebug() {
-            StartCoroutine(DrawInnerWalls());
             StartCoroutine(DrawRooms());
             StartCoroutine(DrawDoors());
             StartCoroutine(DrawGraph());
@@ -97,6 +97,11 @@ namespace DungeonGeneration {
                         Color roomColour = Color.cyan;
 
                         foreach (RoomData room in dungeonData.GetDungeonRooms()) {
+                            if (drawInnerWalls) {
+                                RectInt innerBounds = new(room.Bounds.xMin + 1, room.Bounds.yMin + 1, room.Bounds.width-2, room.Bounds.height - 2);
+                                DebugRectInt(innerBounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
+                            }
+
                             DebugRectInt(room.Bounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
                         }
                     }
@@ -115,19 +120,6 @@ namespace DungeonGeneration {
                         }
                     }
 
-                    yield return new WaitForSeconds(wireframeFixedUpdate);
-                }
-            }
-
-            IEnumerator DrawInnerWalls() {
-                while (true) {
-                    RectInt innerWall = dungeonSize;
-                    innerWall.x = dungeonSize.x + 1;
-                    innerWall.y = dungeonSize.y + 1;
-                    innerWall.width = dungeonSize.width - 2;
-                    innerWall.height = dungeonSize.height - 2;
-
-                    DebugRectInt(innerWall, Color.blue, height: height, duration: wireframeFixedUpdate);
                     yield return new WaitForSeconds(wireframeFixedUpdate);
                 }
             }
