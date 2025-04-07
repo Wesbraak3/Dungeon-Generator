@@ -1,13 +1,8 @@
-﻿using NUnit.Framework.Constraints;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Burst.Intrinsics;
-using UnityEditor;
-using UnityEditor.Overlays;
 using UnityEngine;
-using UnityEngine.tvOS;
 
 namespace DungeonGeneration {    
     public class DungeonGeneratorRecursive : MonoBehaviour {
@@ -21,11 +16,15 @@ namespace DungeonGeneration {
         [SerializeField] private int doorSize = 2;
         [SerializeField] private int height = 5;
         [SerializeField] private int percentToRemove = 0;
+        private enum Algoritmes { BFS, DFS, DFSRandom, None};
+        [SerializeField] private Algoritmes algorithme = Algoritmes.BFS;
+
 
         [Space(10)]
         [Header("Visualisation")]
         [SerializeField] private float wireframeFixedUpdate = 1;
         [SerializeField] private bool drawRooms = true;
+        [SerializeField] private bool drawInnerWalls = true;
         [SerializeField] private bool drawDoors = true;
         [SerializeField] private bool drawGraph = true;
 
@@ -56,7 +55,6 @@ namespace DungeonGeneration {
         }
 
         private void DrawDebug() {
-            StartCoroutine(DrawInnerWalls());
             StartCoroutine(DrawRooms());
             StartCoroutine(DrawDoors());
             StartCoroutine(DrawGraph());
@@ -71,14 +69,14 @@ namespace DungeonGeneration {
                         HashSet<DoorData> discovered = new();
                         foreach (RoomData room in dungeonData.GetDungeonRooms()) {
                             Vector3 roomPosition = new(room.Bounds.center.x, 0, room.Bounds.center.y);
-                            DebugPoint(roomPosition, roomNodeColor, duration: wireframeFixedUpdate);
+                            DebugCircle(roomPosition, roomNodeColor, duration: wireframeFixedUpdate);
                             
                             foreach (DoorData connectedDoor in room.ConnectedDoors) {
                                 if (!discovered.Contains(connectedDoor)) {
                                     discovered.Add(connectedDoor);
 
                                     Vector3 doorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
-                                    DebugPoint(doorPosition, doorNodeColor, duration: wireframeFixedUpdate);
+                                    DebugCircle(doorPosition, doorNodeColor, duration: wireframeFixedUpdate);
                                 }
 
                                 Vector3 connectedDoorPosition = new(connectedDoor.Bounds.center.x, 0, connectedDoor.Bounds.center.y);
@@ -97,6 +95,11 @@ namespace DungeonGeneration {
                         Color roomColour = Color.cyan;
 
                         foreach (RoomData room in dungeonData.GetDungeonRooms()) {
+                            if (drawInnerWalls) {
+                                RectInt innerBounds = new(room.Bounds.xMin + 1, room.Bounds.yMin + 1, room.Bounds.width-2, room.Bounds.height - 2);
+                                DebugRectInt(innerBounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
+                            }
+
                             DebugRectInt(room.Bounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
                         }
                     }
@@ -115,19 +118,6 @@ namespace DungeonGeneration {
                         }
                     }
 
-                    yield return new WaitForSeconds(wireframeFixedUpdate);
-                }
-            }
-
-            IEnumerator DrawInnerWalls() {
-                while (true) {
-                    RectInt innerWall = dungeonSize;
-                    innerWall.x = dungeonSize.x + 1;
-                    innerWall.y = dungeonSize.y + 1;
-                    innerWall.width = dungeonSize.width - 2;
-                    innerWall.height = dungeonSize.height - 2;
-
-                    DebugRectInt(innerWall, Color.blue, height: height, duration: wireframeFixedUpdate);
                     yield return new WaitForSeconds(wireframeFixedUpdate);
                 }
             }
@@ -164,11 +154,29 @@ namespace DungeonGeneration {
                 ActiveSplits = 0;
             }));
 
-            Debug.Log("remove smaller rooms");
             yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage:percentToRemove));
+
+            switch (algorithme) {
+                case Algoritmes.BFS:
+                    Debug.Log("BFS");
+                    yield return StartCoroutine(BFS());
+                    break;
+                case Algoritmes.DFS:
+                    Debug.Log("DFS");
+                    yield return StartCoroutine(DFS());
+                    break;
+                case Algoritmes.DFSRandom:
+                    Debug.Log("DFS Random");
+                    yield return StartCoroutine(DFSRandom());
+                    break;
+                case Algoritmes.None:
+                    break;
+            }
+            
             StopTime();
 
-            // O(logN) with early stops
+            #region Local Functions
+
             // O(N) equal splits
             // O(n*m) with door placement
             IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
@@ -300,60 +308,60 @@ namespace DungeonGeneration {
                 }
             }
 
-            //O(N log N) 
+            //O(n log n)
             IEnumerator RemoveSmallRooms(List<RoomData> roomList, int percentage = 0) {
                 int totalRooms = roomList.Count;
-                Debug.Log("1: " + totalRooms);
-
                 int removeRooms = totalRooms * percentage / 100;
-                Debug.Log("2: " + removeRooms);
 
-                LinkedList<RoomData> linkedSortedRooms = new(roomList.OrderBy(room => room.Surface).ToList());
+                if (removeRooms == 0)
+                    yield break;
 
+                LinkedList<RoomData> sortedRooms = new(roomList.OrderBy(room => room.Surface));
 
-                DateTime startTime = DateTime.Now; // Start time of the operation
-                TimeSpan timeout = TimeSpan.FromSeconds(10); // Set the timeout limit (e.g., 5 seconds)
-                
-                int removed = 0;
-                while (removed < removeRooms) {
-                    if (DateTime.Now - startTime > timeout) {
-                        Console.WriteLine("Timeout reached, exiting loop.");
-                        break; // Exit the loop if the timeout is exceeded
-                    }
+                List<RoomData> removedRooms = new();
+                while (removeRooms > 0) {
+                    foreach (RoomData room in removedRooms) sortedRooms.Remove(room);
 
-                    for (int i = 0; i < linkedSortedRooms.Count; i++) {
-                        RoomData room = linkedSortedRooms.ElementAt(i);
+                    foreach (RoomData room in sortedRooms) {
+                        if (removeRooms == 0) break;
 
-                        if (dungeonData.CheckConnection(dungeonData.GetIndexOfRoom(room))) {
-                            dungeonData.RemoveRoom(room);
-                            linkedSortedRooms.Remove(room);
-                            removed++;
-                            continue;
-                        }
-
-                        //if (room.ConnectedDoors.Count == 1) {
-                        //    dungeonData.RemoveRoom(room);
-                        //    linkedSortedRooms.Remove(room);
-                        //    removeRooms--;
-                        //    break;
-                        //}
+                        bool removed = dungeonData.RemoveRoom(room, checkIfCreatesIsland: true);
+                        if (removed) {
+                            removedRooms.Add(room);
+                            removeRooms--;;
+                        } 
                     }
                 }
 
                 yield break;
             }
+
+
+            [ContextMenu("Run BFS")]
+            IEnumerator BFS() {
+                dungeonData.RemoveCyclesBFS();
+                yield break;
+            }
+
+            [ContextMenu("Run DFS")]
+            IEnumerator DFS() {
+                dungeonData.RemoveCyclesDFS();
+                yield break;
+            }
+
+            [ContextMenu("Run DFS Random")]
+            IEnumerator DFSRandom() {
+                dungeonData.RemoveCyclesDFS(randomised:true);
+                yield break;
+            }
+            
+            #endregion
         }
 
-        [ContextMenu("Run BFS")]
-        private void BFS() => dungeonData.RemoveCyclesBFS();
 
-        [ContextMenu("Run DFS")]
-        private void DFS() => dungeonData.RemoveCyclesDFS();
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
-        private static void DebugArrow(Vector3 position, Vector3 direction, Color color, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
-            DebugExtension.DebugArrow(position, direction, color, duration: duration, depthTest: depthTest);
-        private static void DebugPoint(Vector3 position, Color color, float scale = 1, float duration = 0f, bool depthTest = false, float height = 0.01f) =>
-            DebugExtension.DebugPoint(position, color, scale:scale, duration:duration, depthTest:depthTest);
+        private static void DebugCircle(Vector3 position, Color color, float radius = .5f, float duration = 0f, bool depthTest = false) =>
+                DebugExtension.DebugCircle(position, color, radius:radius, duration: duration, depthTest: depthTest);
     }
 }

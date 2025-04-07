@@ -3035,14 +3035,17 @@ MonoBehaviour:
     width: 100
     height: 50
   minRoomSize: 10
-  maxRoomSize: 20
   doorSize: 2
   height: 5
+  percentToRemove: 20
+  algorithme: 0
   wireframeFixedUpdate: 0
   drawRooms: 1
-  drawGraph: 1
+  drawInnerWalls: 1
   drawDoors: 1
-  randomColour: 0
+  drawGraph: 1
+  maxTreads: 2
+  activeTreads: 0
   ActiveSplits: 0
 --- !u!1 &1596072921
 GameObject:
