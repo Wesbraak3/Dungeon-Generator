@@ -28,13 +28,18 @@ namespace DungeonGeneration {
             DoorList.Add(newDoor);
         }
 
-        public void RemoveRoom(RoomData room) {
+        public bool RemoveRoom(RoomData room, bool checkIfCreatesIsland = false) {
+            if(checkIfCreatesIsland && CreatesIsland(RoomList.IndexOf(room))){
+                return false;
+            }
+
             List<DoorData> connectedDoors = new(room.ConnectedDoors);
             foreach (DoorData door in connectedDoors) {
                 RemoveDoor(door);
             }
 
             RoomList.Remove(room);
+            return true;
         }
 
         public void RemoveDoor(DoorData door) {
@@ -54,25 +59,38 @@ namespace DungeonGeneration {
             DoorList.Clear();
         }
 
-        public bool CheckConnection(int removeRoom) {
-            HashSet<RoomData> discoveredRooms = new() { RoomList[0], RoomList[removeRoom] };
-            Queue<RoomData> roomQue = new();
-            roomQue.Enqueue(RoomList[0]);
+        private bool CreatesIsland(int removeRoom) {
+            int rootroom = 0;
 
+            if (removeRoom == rootroom)
+                rootroom = 1;
+
+            HashSet<RoomData> discoveredRooms = new() { RoomList[rootroom] };
+            Queue<RoomData> roomQue = new();
+            roomQue.Enqueue(RoomList[rootroom]);
+
+            RoomData roomToRemove = RoomList[removeRoom];
             while (roomQue.Count > 0) {
                 RoomData room = roomQue.Dequeue();
-                foreach (DoorData door in room.ConnectedDoors) {
+
+                for (int i = room.ConnectedDoors.Count - 1; i >= 0; i--) {
+                    DoorData door = room.ConnectedDoors[i];
+
                     RoomData connectedRoom = null;
                     foreach (RoomData doorRoom in door.ConnectedRooms) {
                         if (doorRoom == room) continue;
                         connectedRoom = doorRoom;
                     }
-                    if (discoveredRooms.Contains(connectedRoom)) continue;
+
+                    if (discoveredRooms.Contains(connectedRoom) || connectedRoom == roomToRemove)
+                        continue;
+
                     roomQue.Enqueue(connectedRoom);
                     discoveredRooms.Add(connectedRoom);
                 }
             }
-            return discoveredRooms.Count == RoomList.Count;
+
+            return discoveredRooms.Count != RoomList.Count - 1;
         }
 
         public void RemoveCyclesBFS(int startRoomIndex = 0) {
