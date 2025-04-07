@@ -1,13 +1,8 @@
-﻿using NUnit.Framework.Constraints;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Burst.Intrinsics;
-using UnityEditor;
-using UnityEditor.Overlays;
 using UnityEngine;
-using UnityEngine.tvOS;
 
 namespace DungeonGeneration {    
     public class DungeonGeneratorRecursive : MonoBehaviour {
@@ -159,7 +154,6 @@ namespace DungeonGeneration {
                 ActiveSplits = 0;
             }));
 
-            Debug.Log("remove smaller rooms");
             yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage:percentToRemove));
 
             switch (algorithme) {
@@ -183,7 +177,6 @@ namespace DungeonGeneration {
 
             #region Local Functions
 
-            // O(logN) with early stops
             // O(N) equal splits
             // O(n*m) with door placement
             IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
@@ -315,48 +308,34 @@ namespace DungeonGeneration {
                 }
             }
 
-            //O(N log N) 
+            //O(n log n)
             IEnumerator RemoveSmallRooms(List<RoomData> roomList, int percentage = 0) {
                 int totalRooms = roomList.Count;
-                Debug.Log("1: " + totalRooms);
-
                 int removeRooms = totalRooms * percentage / 100;
-                Debug.Log("2: " + removeRooms);
 
-                LinkedList<RoomData> linkedSortedRooms = new(roomList.OrderBy(room => room.Surface).ToList());
+                if (removeRooms == 0)
+                    yield break;
 
+                LinkedList<RoomData> sortedRooms = new(roomList.OrderBy(room => room.Surface));
 
-                DateTime startTime = DateTime.Now; // Start time of the operation
-                TimeSpan timeout = TimeSpan.FromSeconds(10); // Set the timeout limit (e.g., 5 seconds)
-                
-                int removed = 0;
-                while (removed < removeRooms) {
-                    if (DateTime.Now - startTime > timeout) {
-                        Console.WriteLine("Timeout reached, exiting loop.");
-                        break; // Exit the loop if the timeout is exceeded
-                    }
+                List<RoomData> removedRooms = new();
+                while (removeRooms > 0) {
+                    foreach (RoomData room in removedRooms) sortedRooms.Remove(room);
 
-                    for (int i = 0; i < linkedSortedRooms.Count; i++) {
-                        RoomData room = linkedSortedRooms.ElementAt(i);
+                    foreach (RoomData room in sortedRooms) {
+                        if (removeRooms == 0) break;
 
-                        if (dungeonData.CheckConnection(dungeonData.GetIndexOfRoom(room))) {
-                            dungeonData.RemoveRoom(room);
-                            linkedSortedRooms.Remove(room);
-                            removed++;
-                            continue;
-                        }
-
-                        //if (room.ConnectedDoors.Count == 1) {
-                        //    dungeonData.RemoveRoom(room);
-                        //    linkedSortedRooms.Remove(room);
-                        //    removeRooms--;
-                        //    break;
-                        //}
+                        bool removed = dungeonData.RemoveRoom(room, checkIfCreatesIsland: true);
+                        if (removed) {
+                            removedRooms.Add(room);
+                            removeRooms--;;
+                        } 
                     }
                 }
 
                 yield break;
             }
+
 
             [ContextMenu("Run BFS")]
             IEnumerator BFS() {
@@ -384,7 +363,5 @@ namespace DungeonGeneration {
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
         private static void DebugCircle(Vector3 position, Color color, float radius = .5f, float duration = 0f, bool depthTest = false) =>
                 DebugExtension.DebugCircle(position, color, radius:radius, duration: duration, depthTest: depthTest);
-
-
     }
 }
