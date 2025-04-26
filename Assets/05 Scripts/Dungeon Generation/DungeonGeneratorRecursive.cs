@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 namespace DungeonGeneration {    
     public class DungeonGeneratorRecursive : MonoBehaviour {
@@ -29,10 +30,20 @@ namespace DungeonGeneration {
         [SerializeField] private bool drawGraph = true;
 
         [Space(10)]
-        [Header("Debug stats")]
+        [Header("Dungeon")]
+        [SerializeField] private GameObject doorPrefab;
+        [SerializeField] private GameObject wallPrefab;
+        [SerializeField] private GameObject floorPrefab;
+        [SerializeField] private GameObject playerPrefab;
+        private GameObject player;
+        private GameObject dungeonObject;
+
+        [Space(10)]
+        [Header("Debug")]
         [SerializeField] private int maxTreads = 2;
         [SerializeField] private int activeTreads = 0;
         [SerializeField] private int ActiveSplits = 0;
+
 
         private DateTime startTime;
         private TimeSpan timeTaken;
@@ -128,6 +139,15 @@ namespace DungeonGeneration {
             StopAllCoroutines();
             dungeonData.Clear();
 
+            if (dungeonObject != null) {
+                Destroy(dungeonObject);
+                dungeonObject = null;
+            }
+            if (player != null) {
+                Destroy(player);
+                player = null;
+            }
+
             generating = false;
             activeTreads = 0;
             DrawDebug();
@@ -149,12 +169,13 @@ namespace DungeonGeneration {
             Debug.Log("generating dungeon");
             StartTime();
 
+            // generate dungeon information
             ActiveSplits = 1;
             yield return StartCoroutine(RecursiveSplit(rootRoom, (callback) => {
                 ActiveSplits = 0;
             }));
 
-            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage:percentToRemove));
+            yield return StartCoroutine(RemoveSmallRooms(dungeonData.GetDungeonRooms(), percentage: percentToRemove));
 
             switch (algorithme) {
                 case Algoritmes.BFS:
@@ -172,14 +193,111 @@ namespace DungeonGeneration {
                 case Algoritmes.None:
                     break;
             }
-            
+
+            // make dungeon physical
+            // setup hirarchy
+            // create grid
+
+            dungeonObject = new("== Dungeon ==", typeof(Grid)) { transform = { position = Vector3.zero } };
+            GameObject structureObject = new("== Structure ==") { transform = { parent = dungeonObject.transform } };
+            Grid grid = dungeonObject.GetComponent<Grid>();
+
+            Queue<(Vector2Int, GameObject)> dungeonStruct = new();
+            Dictionary<Vector2, GameObject> placedItems = new();
+
+            foreach (DoorData door in dungeonData.GetDungeonDoors()) {
+                Vector2Int doorMin = door.Bounds.min;
+                Vector2Int doorMax = door.Bounds.max;
+
+                QueDoorPlacement(doorMin, doorMax);
+            }
+
+            foreach (RoomData room in dungeonData.GetDungeonRooms()) {
+                Vector2Int roomMin = room.Bounds.min;
+                Vector2Int roomMax = room.Bounds.max;
+
+                QueWallPlacement(roomMin, roomMax);
+                QueFoorPlacement(roomMin, roomMax);
+            }
+
+            PlaceObjects(dungeonStruct);
+
+
+            // create doors
+            void QueDoorPlacement(Vector2Int bottomLeft, Vector2Int topRight) {
+                topRight = new(topRight.x - 1, topRight.y - 1);
+                QueFromTo(bottomLeft, topRight, doorPrefab);
+            }
+
+            // create walls
+            void QueWallPlacement(Vector2Int bottomLeft, Vector2Int topRight) {
+                topRight = new(topRight.x - 1, topRight.y - 1);
+                Vector2Int topLeft = new (bottomLeft.x, topRight.y);
+                Vector2Int bottomRight = new (topRight.x, bottomLeft.y);
+
+                QueFromTo(bottomLeft, bottomRight, wallPrefab);
+                QueFromTo(topLeft, topRight, wallPrefab);
+                QueFromTo(bottomLeft, topLeft, wallPrefab);
+                QueFromTo(bottomRight, topRight, wallPrefab);                
+            }
+
+            // create floor
+            void QueFoorPlacement(Vector2Int bottomLeft, Vector2Int topRight) {
+                bottomLeft = new(bottomLeft.x + 1, bottomLeft.y + 1);
+                topRight = new(topRight.x - 2, topRight.y - 2);
+
+                int roomHeight = topRight.y - bottomLeft.y;
+                for (int i = 0; i <= roomHeight; i++) {
+                    int row = bottomLeft.y + i;
+                    Vector2Int left = new (bottomLeft.x, row);
+                    Vector2Int right = new(topRight.x, row);
+
+                    QueFromTo(left, right, floorPrefab);
+                }
+            }
+
+            void QueFromTo(Vector2Int from, Vector2Int to, GameObject prefab) {
+                if (from.x == to.x) {
+                    for (int y = from.y; y <= to.y; y++) {
+                        Vector2Int pos = new(from.x, y);
+                        dungeonStruct.Enqueue((pos, prefab));
+                    }
+                }
+                else if (from.y == to.y) {
+                    for (int x = from.x; x <= to.x; x++) {
+                        Vector2Int pos = new(x, from.y);
+                        dungeonStruct.Enqueue((pos, prefab));
+                    }
+                }
+                else {
+                    Debug.LogWarning($"Invalid range between {from} and {to}. Neither vertical nor horizontal.");
+                }
+            }
+
+            void PlaceObjects(Queue<(Vector2Int, GameObject)> Q) {
+                while (Q.Count > 0) {
+                    var (pos, wallPrefab) = Q.Dequeue();
+
+                    if (placedItems.ContainsKey(pos)) continue;
+
+                    GameObject instantiated = Instantiate(wallPrefab, new Vector3(pos.x, 0, pos.y), Quaternion.identity);
+                    instantiated.transform.SetParent(structureObject.transform);
+                    placedItems.Add(pos, instantiated);
+                }
+            }
+
+            // spawn player
+            Vector2 spawnLocation = dungeonData.GetDungeonRooms()[0].Bounds.center;
+            Vector3 localPosition = grid.WorldToCell(spawnLocation);
+            player = Instantiate(playerPrefab, new Vector3(localPosition.x, 0, localPosition.y), Quaternion.identity);
+
             StopTime();
 
-            #region Local Functions
+        #region Local Functions
 
-            // O(N) equal splits
-            // O(n*m) with door placement
-            IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
+        // O(N) equal splits
+        // O(n*m) with door placement
+        IEnumerator RecursiveSplit(RoomData roomData, Action<List<RoomData>> callback) {
                 RectInt room = roomData.Bounds;
 
                 bool splitH = room.height / 2 > minRoomSize;
@@ -360,7 +478,7 @@ namespace DungeonGeneration {
 
 
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
-            DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, 0, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
+            DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, height * 0.5f, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
         private static void DebugCircle(Vector3 position, Color color, float radius = .5f, float duration = 0f, bool depthTest = false) =>
                 DebugExtension.DebugCircle(position, color, radius:radius, duration: duration, depthTest: depthTest);
     }
