@@ -148,7 +148,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 399086389}
+  - {fileID: 1545683119}
   - {fileID: 2114079131}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -719,64 +719,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
---- !u!1 &399086388
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 399086389}
-  - component: {fileID: 399086391}
-  - component: {fileID: 399086390}
-  m_Layer: 0
-  m_Name: == Grid Manager ==
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &399086389
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 399086388}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 20549264}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &399086390
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 399086388}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee4cd3eb5cd0c1f419aeddaaf505849f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  grid: {fileID: 399086391}
---- !u!156049354 &399086391
-Grid:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 399086388}
-  m_Enabled: 1
-  m_CellSize: {x: 1, y: 1, z: 1}
-  m_CellGap: {x: 0, y: 0, z: 0}
-  m_CellLayout: 0
-  m_CellSwizzle: 0
 --- !u!1 &402029377
 GameObject:
   m_ObjectHideFlags: 0
@@ -2882,8 +2824,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1545683119}
+  - component: {fileID: 1545683120}
   m_Layer: 0
-  m_Name: == Dungeon Generator ==
+  m_Name: == Dungeon Manager ==
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2897,81 +2840,57 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1545683118}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1594616784}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1594616783
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1594616784}
-  - component: {fileID: 1594616785}
-  m_Layer: 0
-  m_Name: Coroutine
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1594616784
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1594616783}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1545683119}
+  m_Father: {fileID: 20549264}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1594616785
+--- !u!114 &1545683120
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1594616783}
+  m_GameObject: {fileID: 1545683118}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 55e84cadbd06f414f9504389a7345362, type: 3}
+  m_Script: {fileID: 11500000, guid: 4d335412515aeb146b6e8f1d3a98bb7c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  seed: 1065
-  dungeonSize:
-    x: 0
-    y: 0
-    width: 100
-    height: 50
+  generator: 0
+  routeLimiter: 1
+  setSeed: 1234
+  dungeonSize: {x: 100, y: 50}
   minRoomSize: 10
-  doorSize: 2
-  height: 1
+  doorWidth: 2
   percentToRemove: 20
-  algorithme: 0
-  wireframeFixedUpdate: 0
+  wallMarker: {fileID: 3293615917947432981, guid: 84a0bf96d37ae1a43958d2c8c3458a7e, type: 3}
+  objectPlacementCases:
+  - {fileID: 0}
+  - {fileID: 2729161622535591341, guid: 1999ba569b5aa99438a587182078ac10, type: 3}
+  - {fileID: 1339771190949649266, guid: f90bdcfdfbca23a4888ea106a294b98e, type: 3}
+  - {fileID: 7165433051837367340, guid: 8c6176f77ec41744390120b2b05526c2, type: 3}
+  - {fileID: 7400499127774335194, guid: ebef0c18766c3d94e88b7b4e1a0d4fd4, type: 3}
+  - {fileID: 7123617311738504206, guid: 682a130df0f74a6438c4aad7dcf21c11, type: 3}
+  - {fileID: 0}
+  - {fileID: 2540653465699648314, guid: e44f8410bdf6dfb4b985399575c4dd07, type: 3}
+  - {fileID: 2540653465699648314, guid: e44f8410bdf6dfb4b985399575c4dd07, type: 3}
+  - {fileID: 0}
+  - {fileID: 7123617311738504206, guid: 682a130df0f74a6438c4aad7dcf21c11, type: 3}
+  - {fileID: 7400499127774335194, guid: ebef0c18766c3d94e88b7b4e1a0d4fd4, type: 3}
+  - {fileID: 7165433051837367340, guid: 8c6176f77ec41744390120b2b05526c2, type: 3}
+  - {fileID: 1339771190949649266, guid: f90bdcfdfbca23a4888ea106a294b98e, type: 3}
+  - {fileID: 2729161622535591341, guid: 1999ba569b5aa99438a587182078ac10, type: 3}
+  - {fileID: 0}
+  height: 1
+  wireframeFixedUpdate: 1
   drawRooms: 1
-  drawInnerWalls: 1
-  drawDoors: 1
-  drawGraph: 1
-  doorPrefab: {fileID: 759789215363781594, guid: be43a7d2d1600684386f12e19cf400aa, type: 3}
-  wallPrefab: {fileID: 8788518005121831774, guid: 2b287416b4453ed42a93f47d2153b3fe, type: 3}
-  floorPrefab: {fileID: 759789215363781594, guid: be43a7d2d1600684386f12e19cf400aa, type: 3}
-  playerPrefab: {fileID: 2070002326408225860, guid: c3018999aaba5674caf783a17ca10d2f, type: 3}
-  maxTreads: 2
-  activeTreads: 0
-  ActiveSplits: 0
+  drawInnerWalls: 0
+  drawDoors: 0
+  drawGraph: 0
+  recursiveMaxTreads: 2
 --- !u!1 &1596072921
 GameObject:
   m_ObjectHideFlags: 0
@@ -4381,5 +4300,4 @@ SceneRoots:
   m_Roots:
   - {fileID: 410087041}
   - {fileID: 832575519}
-  - {fileID: 1545683119}
   - {fileID: 20549264}

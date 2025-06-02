@@ -3,29 +3,43 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
 
 namespace DungeonGeneration {
-    public class DungeonManager : MonoBehaviour {
-        private DungeonData dungeonData = new();
-        private System.Random random;
+    public enum Algoritmes { BFS, DFS, DFSRandom, DFSRecursive, DFSRandomRecursive, None };
 
+    public class DungeonManager : MonoBehaviour {
+        public static DungeonManager instance;
+
+        public DungeonData dungeonData = new();
+        
         private enum Generator { Recursive, Async };
         [Header("Dungeon Generator Settings")]
         [SerializeField] private Generator generator = Generator.Recursive;
+        public Algoritmes routeLimiter = Algoritmes.DFS;
 
-        [SerializeField] private int setSeed = 1234;
-        [SerializeField] private Vector2Int dungeonSize = new(100, 50);
-        [SerializeField] private int minRoomSize = 10;
-        [SerializeField] private int doorWidth = 2;
-        [SerializeField] private int height = 5;
-        [SerializeField] private int percentToRemove = 0;
-        private enum Algoritmes { BFS, DFS, DFSRandom, None };
-        [SerializeField] private Algoritmes algorithme = Algoritmes.BFS;
+        public int setSeed = 1234;
+        public Vector2Int dungeonSize = new(100, 50);
+        public int minRoomSize = 10;
+        public int doorWidth = 2;
+        public int percentToRemove = 20;
 
+        [Space(10)]
+        [Header("Dungeon")]
+        //[SerializeField] private GameObject doorPrefab;
+        //[SerializeField] private GameObject wallPrefab;
+        //[SerializeField] private GameObject floorPrefab;
+        //[SerializeField] private GameObject playerPrefab;
+        //private GridManager gridManager;
+        private GameObject player;
+        private GameObject dungeonMesh;
+        public GameObject wallMarker;
+
+        [Header("Add case 0 - 16")]
+        public List<GameObject> objectPlacementCases;
 
         [Space(10)]
         [Header("Visualisation")]
+        [SerializeField] private int height = 5;
         [SerializeField] private float wireframeFixedUpdate = 1;
         [SerializeField] private bool drawRooms = true;
         [SerializeField] private bool drawInnerWalls = true;
@@ -33,43 +47,20 @@ namespace DungeonGeneration {
         [SerializeField] private bool drawGraph = true;
 
         [Space(10)]
-        [Header("Dungeon")]
-        [SerializeField] private GameObject doorPrefab;
-        [SerializeField] private GameObject wallPrefab;
-        [SerializeField] private GameObject floorPrefab;
-        [SerializeField] private GameObject playerPrefab;
-        private GridManager gridManager;
-        private GameObject player;
-        private GameObject dungeonObject;
-
-        [Space(10)]
         [Header("Debug")]
-        [SerializeField] private int maxTreads = 2;
-        [SerializeField] private int activeTreads = 0;
-        [SerializeField] private int ActiveSplits = 0;
-
+        public int recursiveMaxTreads = 2;
 
         private DateTime startTime;
         private TimeSpan timeTaken;
-        private bool generating = false;
 
+        private void Awake() {
+            if (instance == null) instance = this;
+            else Destroy(gameObject);
+        }
 
         private void Start() {
-            gridManager = GridManager.instance;
             ResetDungeon();
-        }
-
-
-        private void StartTime() {
-            startTime = DateTime.Now;
-            generating = true;
-        }
-        private void StopTime() {
-            DateTime endTime = DateTime.Now;
-            timeTaken = endTime - startTime;
-            generating = false;
-
-            Debug.Log($"Room Generation timer: {timeTaken.TotalSeconds}");
+            //gridManager = GridManager.instance;
         }
 
         private void DrawDebug() {
@@ -115,10 +106,10 @@ namespace DungeonGeneration {
                         foreach (RoomData room in dungeonData.GetDungeonRooms()) {
                             if (drawInnerWalls) {
                                 RectInt innerBounds = new(room.Bounds.xMin + 1, room.Bounds.yMin + 1, room.Bounds.width - 2, room.Bounds.height - 2);
-                                DebugRectInt(innerBounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
+                                DebugRectInt(innerBounds, roomColour, height: height, duration: wireframeFixedUpdate);
                             }
 
-                            DebugRectInt(room.Bounds, roomColour, height: room.Height, duration: wireframeFixedUpdate);
+                            DebugRectInt(room.Bounds, roomColour, height: height, duration: wireframeFixedUpdate);
                         }
                     }
 
@@ -132,7 +123,7 @@ namespace DungeonGeneration {
                         Color doorColour = Color.green;
 
                         foreach (DoorData door in dungeonData.GetDungeonDoors()) {
-                            DebugRectInt(door.Bounds, doorColour, height: door.Height, duration: wireframeFixedUpdate);
+                            DebugRectInt(door.Bounds, doorColour, height: height, duration: wireframeFixedUpdate);
                         }
                     }
 
@@ -141,41 +132,100 @@ namespace DungeonGeneration {
             }
         }
 
-        public void ResetDungeonButton() => ResetDungeon();
-        private RoomData ResetDungeon() {
+        [ContextMenu("Reset Dungeon")]
+        public void ResetDungeon() {
+            Debug.Log("LOG: Restting dungeon...");
+
+            // stop active processes (if active)
             StopAllCoroutines();
+            // clear dungeonData
             dungeonData.Clear();
 
-            if (dungeonObject != null) {
-                Destroy(dungeonObject);
-                dungeonObject = null;
+            foreach (Transform child in transform) Destroy(child.gameObject);
+
+            // destroy created meshes/player and set to null
+            if (dungeonMesh != null) {
+                Destroy(dungeonMesh);
+                dungeonMesh = null;
             }
             if (player != null) {
                 Destroy(player);
                 player = null;
             }
 
-            generating = false;
-            activeTreads = 0;
+            // restart debugger
             DrawDebug();
 
-            random = new System.Random(seed);
-            RoomData room = new(dungeonSize, height);
+            // set random seed and startRoom at 0x0
+            RoomData room = new(new(0, 0, dungeonSize.x, dungeonSize.y));
             dungeonData.AddRoom(room);
-
-            return room;
         }
 
         [ContextMenu("Generate Dungeon")]
-        public void GenerateDungeonButton() {
-            RoomData rootRoom = ResetDungeon();
-            //StartCoroutine(GenerateDungeon(rootRoom));
+        public void GenerateDungeon() {
+            ResetDungeon();
+            StartCoroutine(GenerationLogic());
+        }
+
+        private IEnumerator GenerationLogic() {
+            Debug.Log("LOG: Generating dungeon...");
+
+            startTime = DateTime.Now;
+
+            // generate dungeon data
+            switch (generator) {
+                case Generator.Recursive:
+                    DungeonGeneratorRecursive generatorScript = gameObject.AddComponent<DungeonGeneratorRecursive>();
+                    yield return StartCoroutine(generatorScript.Generate());
+                    Destroy(gameObject.GetComponent<DungeonGeneratorRecursive>());
+                    break;
+                case Generator.Async:
+                    Debug.Log("NOT IMPLEMENTED");
+                    // Call async generation method
+                    break;
+            }
+
+            // limit dungeon routes
+            switch (routeLimiter) {
+                case Algoritmes.BFS:
+                    yield return StartCoroutine(dungeonData.RemoveCyclesBFS());
+                    break;
+                case Algoritmes.DFS:
+                    yield return StartCoroutine(dungeonData.RemoveCyclesDFS());
+                    break;
+                case Algoritmes.DFSRandom:
+                    Debug.Log("nope not here yet");
+                    //yield return StartCoroutine(dungeonData.RemoveCyclesDFS(randomised: true));
+                    break;
+                case Algoritmes.DFSRecursive:
+                    yield return StartCoroutine(dungeonData.RemoveCyclesDFSRecursive());
+                    break;
+                case Algoritmes.DFSRandomRecursive:
+                    Debug.Log("nope not here yet");
+                    //yield return StartCoroutine(dungeonData.RemoveCyclesDFSRecursive(randomised: true));
+                    break;
+                case Algoritmes.None:
+                    break;
+            }
+
+            // meshbuilder acording to generated data
+            // transforming data to tilemap and using marching square algoritme
+            MeshCreation meshbuilber = gameObject.AddComponent<MeshCreation>();
+            yield return StartCoroutine(meshbuilber.CreateMesh());
+
+            // generate floor
+
+
+            DateTime endTime = DateTime.Now;
+            timeTaken = endTime - startTime;
+
+            Debug.Log($"Room Generation timer: {timeTaken.TotalSeconds}");
+            yield break;
         }
 
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>
             DebugExtension.DebugBounds(new Bounds(new Vector3(rectInt.center.x, height * 0.5f, rectInt.center.y), new Vector3(rectInt.width, height, rectInt.height)), color, duration, depthTest);
         private static void DebugCircle(Vector3 position, Color color, float radius = .5f, float duration = 0f, bool depthTest = false) =>
                 DebugExtension.DebugCircle(position, color, radius: radius, duration: duration, depthTest: depthTest);
-
     }
 }

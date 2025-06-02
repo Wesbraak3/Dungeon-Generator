@@ -42,7 +42,6 @@ public class GridManager : MonoBehaviour {
         return adjacentNodes;
     }
 
-
     public bool IsTileTraversable(Vector3 position) {
         Vector3Int gridPosition = grid.WorldToCell(position);
         PlacementData placementData = gridData.GetPlacementData(gridPosition);

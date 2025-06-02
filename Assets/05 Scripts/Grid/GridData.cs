@@ -1,21 +1,41 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class GridData {
     Dictionary<Vector3Int, PlacementData> placedObjects = new();
 
-    public void AddObjectAt(Vector3Int gridPosition,
-                            Vector2Int objectSize,
-                            GameObject placedObjectIndex,
-                            bool isTraversable
-        ) {
+    public void AddObjectAt(
+        Vector3Int gridPosition,
+        Vector2Int objectSize,
+        GameObject placedObject,
+        bool isTraversable
+    ) {
         List<Vector3Int> positionToOccupy = CalculatePositions(gridPosition, objectSize);
-        PlacementData data = new(positionToOccupy, placedObjectIndex, isTraversable);
+        PlacementData data = new(positionToOccupy, placedObject, isTraversable);
+        
         foreach (var pos in positionToOccupy) {
             if (placedObjects.ContainsKey(pos)) {
                 throw new System.Exception($"Dictionary already contains this cell position {pos}");
             }
             placedObjects[pos] = data;
+        }
+    }
+
+    public void ReplaceObjectAt(
+        Vector3Int gridPosition,
+        Vector2Int objectSize,
+        GameObject placedObject,
+        bool isTraversable
+    ) {
+        if (!CanPlaceObjectAt(gridPosition, objectSize)) {
+            RemoveObjectAt(gridPosition);
+            AddObjectAt(
+                gridPosition,
+                objectSize,
+                placedObject,
+                isTraversable
+            );
         }
     }
 
