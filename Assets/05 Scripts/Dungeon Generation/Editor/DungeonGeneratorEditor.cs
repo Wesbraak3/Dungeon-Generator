@@ -2,22 +2,22 @@ using UnityEngine;
 using UnityEditor;
 
 namespace DungeonGeneration {
-    [CustomEditor(typeof(DungeonGeneratorRecursive))]
+    [CustomEditor(typeof(DungeonManager))]
     public class CreateRoomEditor : Editor {
 
         public override void OnInspectorGUI() {
-            DungeonGeneratorRecursive button = (DungeonGeneratorRecursive)target;
+            DungeonManager button = (DungeonManager)target;
 
             // Reset Dungeon Button
             GUI.enabled = EditorApplication.isPlaying;
             if (GUILayout.Button("Reset Dungeon")) {
-                button.ResetDungeonButton();
+                button.ResetDungeon();
             }
 
             // Generate Dungeon Button
             GUI.enabled = EditorApplication.isPlaying;
             if (GUILayout.Button("Generate Dungeon")) {
-                button.GenerateDungeonButton();
+                button.GenerateDungeon();
             }
 
             // Restore GUI state (after buttons)
