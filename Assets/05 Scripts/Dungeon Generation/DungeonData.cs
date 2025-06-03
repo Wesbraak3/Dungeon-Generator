@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace DungeonGeneration {
@@ -9,7 +11,6 @@ namespace DungeonGeneration {
         private List<DoorData> DoorList = new();
 
         public void AddRoom(RoomData newRoom) => RoomList.Add(newRoom);
-
         public void AddDoor(DoorData newDoor) {
             RoomData roomA = newDoor.ConnectedRooms[0];
             RoomData roomB = newDoor.ConnectedRooms[1];
@@ -93,7 +94,7 @@ namespace DungeonGeneration {
             return discoveredRooms.Count != RoomList.Count - 1;
         }
 
-        public void RemoveCyclesBFS(int startRoomIndex = 0) {
+        public IEnumerator RemoveCyclesBFS(int startRoomIndex = 0) {
             Queue<RoomData> roomQue = new();
             HashSet<RoomData> discoveredRooms = new() { RoomList[startRoomIndex] };
             HashSet<DoorData> discoveredDoors = new();
@@ -123,9 +124,10 @@ namespace DungeonGeneration {
                     discoveredDoors.Add(door);
                 }
             }
+            yield break;
         }
 
-        public void RemoveCyclesDFS(int startRoomIndex = 0, bool randomised = false) {
+        public IEnumerator RemoveCyclesDFS(int startRoomIndex = 0) {
             Stack<RoomData> roomStack = new();
             HashSet<RoomData> discoveredRooms = new() { RoomList[startRoomIndex] };
             HashSet<DoorData> discoveredDoors = new();
@@ -155,8 +157,39 @@ namespace DungeonGeneration {
                     discoveredDoors.Add(door);
                 }
             }
+            yield break;
         }
 
+        public IEnumerator RemoveCyclesDFSRecursive(int startRoomIndex = 0) {
+            HashSet<RoomData> discoveredRooms = new();
+            HashSet<DoorData> discoveredDoors = new();
+
+            RoomData startRoom = RoomList[startRoomIndex];
+            discoveredRooms.Add(startRoom);
+
+            void DFS(RoomData room) {
+                foreach (DoorData door in room.ConnectedDoors.ToArray()) {
+                    if (discoveredDoors.Contains(door)) continue;
+
+                    //get the other room where room is not this room
+                    RoomData connectedRoom = Array.Find(door.ConnectedRooms, r => r != room);
+
+                    if (connectedRoom == null) continue;
+
+                    if (discoveredRooms.Contains(connectedRoom)) {
+                        RemoveDoor(door);
+                        continue;
+                    }
+
+                    discoveredRooms.Add(connectedRoom);
+                    discoveredDoors.Add(door);
+                    DFS(connectedRoom);
+                }
+            }
+
+            DFS(startRoom);
+            yield break;
+        }
 
 
         // Fisher-Yates Shuffle
@@ -172,13 +205,11 @@ namespace DungeonGeneration {
 
     public class RoomData {
         public RectInt Bounds { get; private set; }
-        public int Height { get; private set; }
         public float Surface { get; private set; }
         public List<DoorData> ConnectedDoors { get; private set; } = new();
 
-        public RoomData(RectInt bounds, int height) {
+        public RoomData(RectInt bounds) {
             Bounds = bounds;
-            Height = height;
             Surface = bounds.height * bounds.width;
         }
 
@@ -187,12 +218,10 @@ namespace DungeonGeneration {
 
     public class DoorData {
         public RectInt Bounds { get; private set; }
-        public int Height { get; private set; }
         public RoomData[] ConnectedRooms { get; private set; } = new RoomData[2];
 
-        public DoorData(RectInt bounds, int height, RoomData roomA, RoomData roomB) {
+        public DoorData(RectInt bounds, RoomData roomA, RoomData roomB) {
             Bounds = bounds;
-            Height = height;
             ConnectedRooms[0] = roomA;
             ConnectedRooms[1] = roomB;
         }
