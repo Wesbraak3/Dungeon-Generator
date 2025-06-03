@@ -75,7 +75,6 @@ public class PathFinder : MonoBehaviour {
         }
         return new List<Vector3>(); // No path found
     }
-
     public List<Vector3> Dijkstra(Vector3 start, Vector3 end) {
         //Use this "discovered" list to see the nodes in the visual debugging used on OnDrawGizmos()
         discovered.Clear();
@@ -127,6 +126,7 @@ public class PathFinder : MonoBehaviour {
 
             foreach (Vector3 w in gridManager.GetAdjecentNodes(v)) {
                 float newCost = C[v] + Cost(v, w);
+                if (newCost == Mathf.Infinity) continue;
 
                 if (!C.ContainsKey(w) || newCost < C[w]) {
                     C[w] = newCost;
@@ -139,11 +139,8 @@ public class PathFinder : MonoBehaviour {
     }
 
     public float Cost(Vector3 from, Vector3 to) {
-        float distance = Vector3.Distance(from, to);
         bool isTraversable = gridManager.IsTileTraversable(to);
-        if (!isTraversable) {
-            return Mathf.Infinity;
-        }
+        if (!isTraversable) return Mathf.Infinity;
         return Vector3.Distance(from, to);
     }
 

@@ -228,7 +228,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   path: []
-  algorithm: 0
+  algorithm: 2
   gridManager: {fileID: 0}
 --- !u!1 &5778552408062180810
 GameObject:

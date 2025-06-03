@@ -71,6 +71,8 @@ namespace DungeonGeneration {
             Vector2 centerOfRoom = DungeonManager.instance.dungeonData.GetDungeonRooms()[0].Bounds.center;
             Vector3Int startGridCoord = grid.WorldToCell(new Vector3(centerOfRoom.x, 0, centerOfRoom.y));
             yield return StartCoroutine(FloodFill(startGridCoord));
+
+            Destroy(this);
         }
 
         private void CreateTileMap(Vector2Int dungeonSize, List<RoomData> rooms, List<DoorData> doors) {
@@ -185,11 +187,11 @@ namespace DungeonGeneration {
 
                         GameObject placedObject = Instantiate(floor, w, Quaternion.identity);
                         placedObject.transform.SetParent(dungeonStructure.transform);
-                        gridData.AddObjectAt(w, new(1, 1), placedObject, false);
+                        gridData.AddObjectAt(w, new(1, 1), placedObject, true);
                     }
                 }
 
-                if (i % 10== 1) {
+                if (i % 50 == 1) {
                     yield return null;
                 }
 
