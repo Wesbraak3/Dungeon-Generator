@@ -25,14 +25,10 @@ namespace DungeonGeneration {
 
         [Space(10)]
         [Header("Dungeon")]
-        //[SerializeField] private GameObject doorPrefab;
-        //[SerializeField] private GameObject wallPrefab;
-        //[SerializeField] private GameObject floorPrefab;
-        //[SerializeField] private GameObject playerPrefab;
-        //private GridManager gridManager;
-        private GameObject player;
+        [SerializeField] private GameObject player;
+        private GameObject playerRef;
         private GameObject dungeonMesh;
-        public GameObject wallMarker;
+        public GameObject floor; 
 
         [Header("Add case 0 - 16")]
         public List<GameObject> objectPlacementCases;
@@ -48,6 +44,7 @@ namespace DungeonGeneration {
 
         [Space(10)]
         [Header("Debug")]
+        public GameObject wallMarker;
         public int recursiveMaxTreads = 2;
 
         private DateTime startTime;
@@ -148,9 +145,9 @@ namespace DungeonGeneration {
                 Destroy(dungeonMesh);
                 dungeonMesh = null;
             }
-            if (player != null) {
-                Destroy(player);
-                player = null;
+            if (playerRef != null) {
+                Destroy(playerRef);
+                playerRef = null;
             }
 
             // restart debugger
@@ -209,12 +206,15 @@ namespace DungeonGeneration {
             }
 
             // meshbuilder acording to generated data
-            // transforming data to tilemap and using marching square algoritme
+            // transforming data to tilemap and using marching square algoritme and generate floor with floodfill
             MeshCreation meshbuilber = gameObject.AddComponent<MeshCreation>();
             yield return StartCoroutine(meshbuilber.CreateMesh());
 
-            // generate floor
-
+            // place player
+            // get rootroom;
+            Vector2 rootRoomPosition = dungeonData.GetDungeonRooms()[0].Bounds.center;
+            Vector3Int startGridCoord = GridManager.instance.GetGridPosition(new(rootRoomPosition.x, 0 , rootRoomPosition.y));
+            playerRef = Instantiate(player, startGridCoord, Quaternion.identity);
 
             DateTime endTime = DateTime.Now;
             timeTaken = endTime - startTime;

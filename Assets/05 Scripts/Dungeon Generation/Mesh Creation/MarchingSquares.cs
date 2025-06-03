@@ -5,6 +5,7 @@ using TMPro.EditorUtilities;
 using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 namespace DungeonGeneration {
     public class MeshCreation : MonoBehaviour {
@@ -18,6 +19,7 @@ namespace DungeonGeneration {
 
         private GameObject dungeonParent;
         private GameObject dungeonStructure;
+        public GameObject floor = DungeonManager.instance.floor;
         public GameObject wallMarker = DungeonManager.instance.wallMarker;
 
         private Grid grid;
@@ -37,9 +39,9 @@ namespace DungeonGeneration {
             foreach (Transform child in transform) {
                 DestroyImmediate(child.gameObject);
             }
-            dungeonParent = new (dungeonParentName);
+            dungeonParent = new(dungeonParentName);
             dungeonParent.transform.SetParent(transform);
-            dungeonStructure = new (dungeonStructureName);
+            dungeonStructure = new(dungeonStructureName);
             dungeonStructure.transform.SetParent(transform);
 
             // Try to add GridManager safely
@@ -58,23 +60,25 @@ namespace DungeonGeneration {
         public IEnumerator CreateMesh() {
             Vector2Int dungeonSize = DungeonManager.instance.dungeonSize;
 
-            yield return StartCoroutine(
-                CreateWallMap(
-                    dungeonSize, 
-                    DungeonManager.instance.dungeonData.GetDungeonRooms(),
-                    DungeonManager.instance.dungeonData.GetDungeonDoors()
-            ));
-            StartCoroutine(MarchSquares(new Vector2Int(-1,-1), dungeonSize));
+            CreateTileMap(
+                dungeonSize,
+                DungeonManager.instance.dungeonData.GetDungeonRooms(),
+                DungeonManager.instance.dungeonData.GetDungeonDoors()
+            );
 
-            yield break;
+            yield return StartCoroutine(MarchSquares(new Vector2Int(-1, -1), dungeonSize));
+
+            Vector2 centerOfRoom = DungeonManager.instance.dungeonData.GetDungeonRooms()[0].Bounds.center;
+            Vector3Int startGridCoord = grid.WorldToCell(new Vector3(centerOfRoom.x, 0, centerOfRoom.y));
+            yield return StartCoroutine(FloodFill(startGridCoord));
         }
 
-        private IEnumerator CreateWallMap(Vector2Int dungeonSize, List<RoomData> rooms, List<DoorData> doors) {
+        private void CreateTileMap(Vector2Int dungeonSize, List<RoomData> rooms, List<DoorData> doors) {
             foreach (RoomData room in rooms) {
                 Vector2Int bottomLeft = new(room.Bounds.xMin, room.Bounds.yMin);
-                Vector2Int topLeft = new(room.Bounds.xMin, room.Bounds.yMax-1);
-                Vector2Int bottomRight = new(room.Bounds.xMax-1, room.Bounds.yMin);
-                Vector2Int topRight = new(room.Bounds.xMax-1, room.Bounds.yMax-1);
+                Vector2Int topLeft = new(room.Bounds.xMin, room.Bounds.yMax - 1);
+                Vector2Int bottomRight = new(room.Bounds.xMax - 1, room.Bounds.yMin);
+                Vector2Int topRight = new(room.Bounds.xMax - 1, room.Bounds.yMax - 1);
 
                 // Bottom edge
                 SetWallHor(bottomLeft, bottomRight);
@@ -86,7 +90,7 @@ namespace DungeonGeneration {
                 SetWallVert(bottomRight, topRight);
             }
 
-            foreach(DoorData door in doors) {
+            foreach (DoorData door in doors) {
                 Vector2Int bottomLeft = new(door.Bounds.xMin, door.Bounds.yMin);
                 Vector2Int topLeft = new(door.Bounds.xMin, door.Bounds.yMax);
                 Vector2Int bottomRight = new(door.Bounds.xMax, door.Bounds.yMin);
@@ -123,8 +127,6 @@ namespace DungeonGeneration {
                     }
                 }
             }
-
-            yield break;
         }
 
         private IEnumerator MarchSquares(Vector2Int start, Vector2Int end) {
@@ -151,24 +153,48 @@ namespace DungeonGeneration {
 
                     Vector3Int pos = new(_03.x, 0, _03.y);
                     GameObject objectToPlace = objectPlacementCases[index];
+
                     if (objectToPlace == null) {
                         continue;
                     }
+
+                    if (!gridData.CanPlaceObjectAt(pos, new(1, 1))) {
+                        GameObject placedObj = gridData.GetPlacementData(pos).PlaceObject;
+                        Destroy(placedObj);
+                    }
+
                     GameObject placedObject = Instantiate(objectToPlace, pos, Quaternion.identity);
                     placedObject.transform.SetParent(dungeonStructure.transform);
 
-                    gridData.ReplaceObjectAt(pos, new(1,1), placedObject, false);
-
-                    yield return null;
+                    gridData.ReplaceObjectAt(pos, new(1, 1), placedObject, false);
                 }
                 yield return null;
             }
-            yield break;
         }
-    
-        private IEnumerator FloodFill() {
 
-            yield break;
+        private IEnumerator FloodFill(Vector3Int start) {
+            Queue<Vector3Int> Q = new();
+            Q.Enqueue(start);
+            int i = 0;
+            while (Q.Count != 0) {
+                Vector3Int v = Q.Dequeue();
+
+                foreach (Vector3Int w in gridManager.GetAdjecentNodes(v)) {
+                    if (gridData.CanPlaceObjectAt(w, new(1, 1))) {
+                        Q.Enqueue(w);
+
+                        GameObject placedObject = Instantiate(floor, w, Quaternion.identity);
+                        placedObject.transform.SetParent(dungeonStructure.transform);
+                        gridData.AddObjectAt(w, new(1, 1), placedObject, false);
+                    }
+                }
+
+                if (i % 10== 1) {
+                    yield return null;
+                }
+
+                i++;
+            }
         }
     }
 }
