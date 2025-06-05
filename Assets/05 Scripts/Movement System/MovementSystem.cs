@@ -1,6 +1,10 @@
+using DungeonGeneration;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.AI.Navigation;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class MovementSystem : MonoBehaviour {
     [SerializeField]
@@ -11,12 +15,30 @@ public class MovementSystem : MonoBehaviour {
     private bool isMoving = false;
     Coroutine test;
 
+    [Header("Movement")]
+    public bool useNavMesh = true;
+    public NavMeshSurface navMeshSurface;
+    public NavMeshAgent navMeshAgent;
+
+    private void Awake() {
+        if (navMeshSurface == null) {
+            navMeshSurface = DungeonManager.instance.GetNavMeshSurface();
+            navMeshAgent = gameObject.AddComponent<NavMeshAgent>();
+        }
+    }
+
     public void GoToDestination(Vector3 destination) {
+        if (useNavMesh) {
+            Debug.Log("test");
+            navMeshAgent.destination = destination;
+            return;
+        }
+
+
         if (test != null) {
             StopCoroutine(test);
         }
         test = StartCoroutine(FollowPathCoroutine(pathFinder.CalculatePath(transform.position, destination)));
-          
     }
 
     IEnumerator FollowPathCoroutine(List<Vector3> path) {

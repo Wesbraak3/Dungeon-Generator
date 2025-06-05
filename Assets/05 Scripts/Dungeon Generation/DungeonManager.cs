@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.AI.Navigation;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace DungeonGeneration {
     public enum Algoritmes { BFS, DFS, DFSRandom, DFSRecursive, DFSRandomRecursive, None };
@@ -32,6 +34,8 @@ namespace DungeonGeneration {
 
         [Header("Add case 0 - 16")]
         public List<GameObject> objectPlacementCases;
+
+        public NavMeshSurface navMeshSurface;
 
         [Space(10)]
         [Header("Visualisation")]
@@ -210,6 +214,9 @@ namespace DungeonGeneration {
             MeshCreation meshbuilber = gameObject.AddComponent<MeshCreation>();
             yield return StartCoroutine(meshbuilber.CreateMesh());
 
+            navMeshSurface = gameObject.AddComponent<NavMeshSurface>();
+            navMeshSurface.BuildNavMesh();
+
             // place player
             // get rootroom;
             Vector2 rootRoomPosition = dungeonData.GetDungeonRooms()[0].Bounds.center;
@@ -221,6 +228,10 @@ namespace DungeonGeneration {
 
             Debug.Log($"Room Generation timer: {timeTaken.TotalSeconds}");
             yield break;
+        }
+
+        public NavMeshSurface GetNavMeshSurface() {
+            return navMeshSurface;
         }
 
         private static void DebugRectInt(RectInt rectInt, Color color, float duration = 0f, bool depthTest = false, float height = 0f) =>

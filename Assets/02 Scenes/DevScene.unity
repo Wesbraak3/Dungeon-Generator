@@ -2860,9 +2860,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   generator: 0
-  routeLimiter: 1
+  routeLimiter: 3
   setSeed: 1234
-  dungeonSize: {x: 50, y: 100}
+  dungeonSize: {x: 50, y: 20}
   minRoomSize: 10
   doorWidth: 2
   percentToRemove: 20
@@ -2885,6 +2885,8 @@ MonoBehaviour:
   - {fileID: 1339771190949649266, guid: f90bdcfdfbca23a4888ea106a294b98e, type: 3}
   - {fileID: 2729161622535591341, guid: 1999ba569b5aa99438a587182078ac10, type: 3}
   - {fileID: 0}
+  genrateNavMesh: 1
+  navSurface: {fileID: 0}
   height: 1
   wireframeFixedUpdate: 1
   drawRooms: 1

@@ -20,7 +20,7 @@ namespace DungeonGeneration {
 
         [Space(10)]
         [Header("Generation settings")]
-        [SerializeField] private int maxTreads = 2;
+        [SerializeField] private int maxTreads = DungeonManager.instance.recursiveMaxTreads;
         [SerializeField] private int activeTreads = 0;
 
         private void Awake() {

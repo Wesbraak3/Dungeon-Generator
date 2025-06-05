@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -16,7 +17,7 @@ public class PathFinder : MonoBehaviour {
     public List<Vector3> path = new();
     HashSet<Vector3> discovered = new();
 
-    public Algorithms algorithm = Algorithms.BFS;
+    public Algorithms algorithm = Algorithms.AStar;
 
     public GridManager gridManager;
 
